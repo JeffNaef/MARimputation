@@ -56,8 +56,9 @@ source("helpers.R")
 ##Add drf!!
 #methods <- c("DRF", "cart", "missForest")
 
-methods <- c("DRF","cart","norm.predict", "missForest", "norm.nob", "pmm")
-#methods <- c("cart","norm.predict", "missForest", "norm.nob", "pmm")
+#methods <- c("DRF","cart","norm.predict", "missForest", "norm.nob", "pmm")
+## Add MIPCA:
+methods <- c("DRF","cart","norm.predict", "missForest", "norm.nob", "mipca")
 
 #methods <- c("pmm", "midastouch","mipca", "cart", "sample", "norm.predict",
 #             "mean","rf", "missForest")
@@ -281,7 +282,7 @@ boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
 
 
 
-filename = "Application_2"
+filename = "Application_2_withMIPCA"
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))
 

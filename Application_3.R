@@ -64,7 +64,7 @@ source("helpers.R")
 #methods <- c("DRF", "cart")
 #methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob")
 ## Add MIPCA:
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob")
+methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "mipca")
 
 
 
@@ -214,7 +214,7 @@ Results<-list()
 
 
 
-filename = "Application_3"
+filename = "Application_3_withMIPCA"
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))
 

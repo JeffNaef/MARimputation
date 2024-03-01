@@ -1,5 +1,5 @@
 
-### Application Ready to Run #####
+### This is the Gaussian Shift Example #####
 
 
 require(energy)
@@ -44,12 +44,11 @@ source("helpers.R")
 
 
 ##Add drf!!
-#methods <- c("norm.predict", "norm.nob")
+#methods <- c("DRF", "cart","norm.predict", "missForest", "norm.nob")
+## Add MIPCA:
+methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "mipca")
 
-methods <- c("DRF", "cart","norm.predict", "missForest", "norm.nob")
 
-#methods <- c("pmm", "midastouch","mipca", "cart", "sample", "norm.predict",
-#             "mean","rf", "missForest")
 nrep.total<-10
 
 
@@ -221,7 +220,7 @@ boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
 
 
 
-filename ="Application_1"
+filename ="Application_1_withMIPCA"
 
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))
