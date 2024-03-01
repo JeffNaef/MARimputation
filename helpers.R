@@ -1104,6 +1104,34 @@ doimputation <- function(X.NA, methods, m=m,...){
       blub <- blockmiceDRF(data=X.NA, blocksize=blocksize, robust=T, num.trees=2, num.features=50, min.node.size=15, m=m,...)
       imputations[[method]]<-mice::complete(blub, action="all")
       
+    }else if (method=="GAIN"){
+      
+      if (m > 1){
+        
+      stop("No Multiple imputation possible")
+      }
+      
+      X.NA<-as.matrix(X.NA)
+      
+      # GAIN standard parameters
+      gain_parameters =  list(
+        batch_size = 64L,
+        hint_rate = 0.9,
+        alpha = 10, 
+        iterations = 2000L
+      )
+      X_imputed<-NA
+      counter <- 0
+      while (any(is.na(X_imputed))& counter < 10){
+        counter<-counter +1 
+      X_imputed <- gain(X.NA, gain_parameters)
+      }
+      
+      if (any(is.na(X_imputed))){
+        imputations[[method]][[1]] <- NA
+      }else{
+      imputations[[method]][[1]] <- X_imputed
+      }
     }else {
 
       imp <- tryCatch({

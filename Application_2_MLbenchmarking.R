@@ -143,9 +143,9 @@ Results<-list()
 
 #length(ids.jack)
 #Results <- lapply(1:10, function(s){
- 
+
 for (s in 1:10){
- 
+  
   set.seed(seeds[s])
   
   
@@ -210,17 +210,17 @@ for (s in 1:10){
   # names(imputations) <- methods
   
   imputationfuncs<-list()
-  for (method in  setdiff(methods, "GAIN")   ){
+  for (method in  methods   ){
     ##Probably not the smartes solution
     imputationfuncs[[method]][[1]] <- method
-    imputationfuncs[[method]][[2]] <- function(X,m, method){ 
+    imputationfuncs[[method]][[2]] <- function(X,m, method){
       doimputation(X.NA=X, methods=method, m=m,print=FALSE, visitSequence="arabic", maxit = 1)}
   }
   ################################## evaluations #########################################
   ########################################################################################
-  
+
   #Step 1: Without access to true underlying data, check Iscore
-  
+
   
   start_time <- Sys.time()
   new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf2", imputationfuncs=imputationfuncs)
@@ -228,15 +228,9 @@ for (s in 1:10){
   
   end_time-start_time
   
-  start_time <- Sys.time()
-  new.score.list.imp <- Iscores_new(X.NA,imputations,score="mulitpleimp2", imputationfuncs=imputationfuncs)
-  end_time <- Sys.time()
-  
-  end_time-start_time
   
   
   new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
-  new.score.imp <- unlist(lapply(new.score.list.imp, function(x) x$score))
   
   
   #Step 2: With access to the full data, check energy score:
@@ -254,19 +248,17 @@ for (s in 1:10){
     escore[method] <- -1/m*escore[method]
   }
   
-#  print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
-#  print( sort( round( unlist(new.score.imp)/sum(unlist(new.score.imp)),3) , decreasing=T)   )
-#  print( sort( round(escore/sum(escore),3) , decreasing=T)   )
- 
+  #  print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
+  #  print( sort( round( unlist(new.score.imp)/sum(unlist(new.score.imp)),3) , decreasing=T)   )
+  #  print( sort( round(escore/sum(escore),3) , decreasing=T)   )
+  
   print("drf-score2:")
   print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
-  print("m-score2:")
-  print( sort( round( unlist(new.score.imp)/sum(unlist(new.score.imp)),3) , decreasing=T)   )
   print("e-score")
   print( sort( round(escore/sum(escore),3) , decreasing=T)   )
   
   print(paste0("nrep ",s, " out of ", nrep.total ))
-   
+  
   print(paste0("nrep ",s, " out of ", nrep.total ))
   
   Results[[s]] <- list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore)

@@ -1,9 +1,15 @@
 #install.packages("reticulate")
 library(reticulate)
 
-Sys.setenv("gain_env" =  path.expand("~/anaconda3/envs/gain_env"))
-use_python(path.expand("~/opt/anaconda3/envs/gain_env/bin/python"))
-use_condaenv(path.expand("~/opt/anaconda3/envs/gain_env"))
+#Sys.setenv("gain_env" =  path.expand("~/anaconda3/envs/gain_env"))
+#use_python(path.expand("~/opt/anaconda3/envs/gain_env/bin/python"))
+#use_condaenv(path.expand("~/opt/anaconda3/envs/gain_env"))
+
+
+Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
+#use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
+use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
+
 
 py_config()
 
