@@ -41,7 +41,6 @@ hist(Xstar[Mindex==1 | Mindex==2,1], xlab="",main="", probability=T)
 
 
 ###Example 2: Showing MAR allows for changes in observed distribution
-##Need a robust imputation maybe
 library(MASS)
 source("helpers.R")
 require(engression)
@@ -76,9 +75,13 @@ n<-2000
 U<-runif(n)
 
 ## In both cases: X_1|X_2 ~ N(X_2, 1)
-X2m1<-mvrnorm(n= sum(U <= 1/2),  mu=0, Sigma=1  )
+##Careful: Compared to the paper the two patterns are reversed:
+## m_1=(1,0), m_2=(0,1)
+## (X_1, X_2) | M=m_1 ~ N((5,5), Sigma  )
+## (X_1, X_2) | M=m_2 ~ N((0,0), Sigma  )
+X2m1<-mvrnorm(n= sum(U <= 1/2),  mu=5, Sigma=1  )
 X1m1<-1*X2m1 + rnorm(n= sum(U <= 1/2))
-X2m2<-mvrnorm(n= sum(U > 1/2),  mu=5, Sigma=1  )
+X2m2<-mvrnorm(n= sum(U > 1/2),  mu=0, Sigma=1  )
 X1m2<-1*X2m2 + rnorm(n= sum(U > 1/2))
 
 
@@ -91,7 +94,7 @@ imputations<- doimputation(X.NA=X.NA, methods="rf", parallelize=F, m=1, min.node
 impcart<-imputations$imputations$rf$'1'
 
 # impdrf (reuse code!)
-DRF<-drf(Y=X1m2, X=X2m2, num.trees=10, min.node.size=15, num.features = 100,ci.group.size = 1,
+DRF<-drf(Y=X1m2, X=X2m2, num.trees=10, min.node.size=15, num.features = 100,
          compute.oob.predictions = F)
 HhatDRF<-predict(DRF, newdata=X2m1)$weights
 
@@ -140,11 +143,11 @@ impreg[1:nrow(X1m1),1]<-Ysample
 
 
 par(mfrow=c(2,2))
-hist( X1m1, xlab="", ylab="", main="Truth", probability = T, ylim=c(0,0.3), xlim=c(-5,10))
+hist( X1m1, xlab="", ylab="", main="Truth", probability = T, ylim=c(0,1.2), xlim=c(-5,10))
 # Almost perfect imputation!
-hist( impreg[1:nrow(X1m1),1], xlab="", ylab="", main="Regression", probability = T, xlim=c(-5,10), ylim=c(0,0.3))
-hist( impcart[1:nrow(X1m1),1], xlab="", ylab="", main="RF", probability = T, xlim=c(-5,10), ylim=c(0,0.3))
-hist( impDRF[1:nrow(X1m1),1], xlab="", ylab="", main="DRF", probability = T, xlim=c(-5,10), ylim=c(0,0.3))
+hist( impreg[1:nrow(X1m1),1], xlab="", ylab="", main="Gaussian", probability = T, xlim=c(-5,10), ylim=c(0,1.2))
+hist( impcart[1:nrow(X1m1),1], xlab="", ylab="", main="RF", probability = T, xlim=c(-5,10), ylim=c(0,1.2))
+hist( impDRF[1:nrow(X1m1),1], xlab="", ylab="", main="DRF", probability = T, xlim=c(-5,10), ylim=c(0,1.2))
 #hist( impDRFrob[1:nrow(X1m1),1], xlab="", ylab="", main="DRF Robust", probability = T, xlim=c(-5,10), ylim=c(0,0.3))
 #hist( impeng[1:nrow(X1m1),1], xlab="", ylab="", main="Engression", probability = T, xlim=c(-5,10), ylim=c(0,0.3))
 # hist( impDRF[1:nrow(X1m1),1],probability = T, add=T, col=rgb(0,1,0,0.3))
