@@ -7,12 +7,12 @@ n<-10000
 Xstar<-matrix( runif(n=3*n), nrow=n, ncol=3    )
 Mindex<-sapply(1:n, function(i) 
   sample(1:3, size=1, replace=F, prob=c(Xstar[i,1]/3, 2/3-Xstar[i,1]/3, 1/3    )))
-M<-t(sapply(1:n, function(i) if (Mindex[i]==1){c(0,0,0)}else if (Mindex[i]==2) {c(0,1,0)} else if  (Mindex[i]==3) {c(1,1,0)}) )
+M<-t(sapply(1:n, function(i) if (Mindex[i]==1){c(0,0,0)}else if (Mindex[i]==2) {c(0,1,0)} else if  (Mindex[i]==3) {c(1,0,0)}) )
 
 
 X<-Xstar
 X[Mindex==2,2]<-NA
-X[Mindex==3,1:2]<-NA
+X[Mindex==3,1]<-NA
 
 head(cbind(X,M,Mindex))
 

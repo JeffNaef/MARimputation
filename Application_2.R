@@ -58,36 +58,15 @@ source("helpers.R")
 library(reticulate)
 
 
-## Better code
-#Sys.setenv("gain_env" =  path.expand("~/anaconda3/envs/gain_env"))
-#use_python(path.expand("~/opt/anaconda3/envs/gain_env/bin/python"))
-#use_condaenv(path.expand("~/opt/anaconda3/envs/gain_env"))
-
-## For Jeff
-Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
-#use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
-use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
-
-
-py_config()
-
-#Required Python Packages
-tensorflow <- import("tensorflow")
-numpy <- import("numpy")
-tqdm <- import("tqdm")
-keras <- import("keras")
-argparse <- import("argparse")  #pip install argparse
-
-reticulate::source_python("gain.py") #there will be  warning but don't worry
-
-
-
 ##Add drf!!
 #methods <- c("DRF", "cart", "missForest")
 
 #methods <- c("DRF","cart","norm.predict", "missForest", "norm.nob", "pmm")
+## Add sample:
+#methods <- c("DRF","cart","norm.predict", "missForest", "norm.nob", "mipca")
 ## Add MIPCA:
-methods <- c("DRF","cart","norm.predict", "missForest", "norm.nob", "mipca", "GAIN")
+methods <- c("DRF","cart","norm.predict", "missForest", "norm.nob", "sample")
+
 
 #methods <- c("pmm", "midastouch","mipca", "cart", "sample", "norm.predict",
 #             "mean","rf", "missForest")
@@ -210,7 +189,7 @@ for (s in 1:10){
   # names(imputations) <- methods
   
   imputationfuncs<-list()
-  for (method in  setdiff(methods, "GAIN")   ){
+  for (method in methods   ){
     ##Probably not the smartes solution
     imputationfuncs[[method]][[1]] <- method
     imputationfuncs[[method]][[2]] <- function(X,m, method){ 
@@ -221,15 +200,28 @@ for (s in 1:10){
   
   #Step 1: Without access to true underlying data, check Iscore
   
+  # 
+  # start_time <- Sys.time()
+  # new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf2", imputationfuncs=imputationfuncs)
+  # end_time <- Sys.time()
+  # 
+  # end_time-start_time
+  # 
+  # start_time <- Sys.time()
+  # new.score.list.imp <- Iscores_new(X.NA,imputations,score="mulitpleimp2", imputationfuncs=imputationfuncs)
+  # end_time <- Sys.time()
+  # 
+  # end_time-start_time
+  # 
   
   start_time <- Sys.time()
-  new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf2", imputationfuncs=imputationfuncs)
+  new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf", imputationfuncs=imputationfuncs)
   end_time <- Sys.time()
   
   end_time-start_time
   
   start_time <- Sys.time()
-  new.score.list.imp <- Iscores_new(X.NA,imputations,score="mulitpleimp2", imputationfuncs=imputationfuncs)
+  new.score.list.imp <- Iscores_new(X.NA,imputations,score="mulitpleimp", imputationfuncs=imputationfuncs)
   end_time <- Sys.time()
   
   end_time-start_time
@@ -311,7 +303,7 @@ boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
 
 
 
-filename = "Application_2_withMIPCA"
+filename = "Application_2_withsample_O"
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))
 

@@ -84,20 +84,23 @@ numberofmissingbyj<-sapply(1:p, function(j)  sum(is.na(X[,j]))  )
 M<-1*is.na(X)
 colnames(M) <- colnames(X)
 
-# if (any(colSums(M)==0)){
-# 
-#   indexfull<-colnames(X)[colSums(M)==0]
-# 
-# }else{
-# 
-#   indexfull<-colnames(X)
-# 
-#   warning("No fully observed variable, using ad-hoc solution")
-# 
-# }
 
+if (score=="mulitpleimp" | score=="drf"){
+###This is what the current theory needs:
+if (any(colSums(M)==0)){
+
+  indexfull<-colnames(X)[colSums(M)==0]
+
+}else{
+
+  indexfull<-colnames(X)
+  score <- paste0(score,2)
+  warning("No fully observed variable, using ad-hoc solution")
+
+}
+}else{
 indexfull<-colnames(X)
-
+}
 
 # Order first according to most missing values
 
@@ -262,7 +265,7 @@ for (j in names(dimwithNA)[1:maxlength]){
         Xartificial<-cbind(c(rep(NA,nrow(Ytest)),c(Ytrain)),rbind(Xtest, Xtrain)   )
         colnames(Xartificial)<-c(colnames(Ytrain), colnames(Xtrain))
         
-        m<-200
+        m<-100
         ##reverse the ordering of the mice imputation here!!! Will likely make it much faster, as 
         ##we always have all columns fully observed except the ones we want to impute by construction
         ## This is weird it shouldn't take that long!
@@ -1520,9 +1523,9 @@ genData_real <- function(dataset= "dengue", n=NULL){
     index<-sample(1:nrow(data$X), size = n,replace = F)
     
     ##Need to remove one coumn for Land.use and one for Location.Setting
-    #X<-cbind(data$Y[index,],data$X[index, !(colnames(data$X)%in% c("Land.Use_RESIDENTIAL", "Location.Setting_URBAN AND CENTER CITY")  ) ])
+    X<-cbind(data$Y[index,],data$X[index, !(colnames(data$X)%in% c("Land.Use_RESIDENTIAL", "Location.Setting_URBAN AND CENTER CITY")  ) ])
     
-    X<-cbind(data$Y[index,],data$X[index,])
+    #X<-cbind(data$Y[index,],data$X[index,])
     
     #X<-X[index,]
     #Y<-Y[index,]

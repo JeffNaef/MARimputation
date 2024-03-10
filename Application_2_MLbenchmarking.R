@@ -59,14 +59,15 @@ library(reticulate)
 
 
 ## Better code
-#Sys.setenv("gain_env" =  path.expand("~/anaconda3/envs/gain_env"))
-#use_python(path.expand("~/opt/anaconda3/envs/gain_env/bin/python"))
-#use_condaenv(path.expand("~/opt/anaconda3/envs/gain_env"))
+Sys.setenv("gain_env" =  path.expand("~/anaconda3/envs/gain_env"))
+use_python(path.expand("~/opt/anaconda3/envs/gain_env/bin/python"))
+use_condaenv(path.expand("~/opt/anaconda3/envs/gain_env"))
 
-## For Jeff
-Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
-#use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
-use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
+# ## For Jeff
+# Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
+# #use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
+# use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
+
 
 
 py_config()
@@ -81,16 +82,9 @@ argparse <- import("argparse")  #pip install argparse
 reticulate::source_python("gain.py") #there will be  warning but don't worry
 
 
+## Add MIWAE here:
+methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN")
 
-##Add drf!!
-#methods <- c("DRF", "cart", "missForest")
-
-#methods <- c("DRF","cart","norm.predict", "missForest", "norm.nob", "pmm")
-## Add MIPCA:
-methods <- c("DRF","cart","norm.predict", "missForest", "norm.nob", "mipca", "GAIN")
-
-#methods <- c("pmm", "midastouch","mipca", "cart", "sample", "norm.predict",
-#             "mean","rf", "missForest")
 missing.mech <- "MAR"
 pmiss <- 0.6
 nrep.total<-10
@@ -223,7 +217,7 @@ for (s in 1:10){
 
   
   start_time <- Sys.time()
-  new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf2", imputationfuncs=imputationfuncs)
+  new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf", imputationfuncs=imputationfuncs)
   end_time <- Sys.time()
   
   end_time-start_time
@@ -303,7 +297,7 @@ boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
 
 
 
-filename = "Application_2_withMIPCA"
+filename = "Application_2_withGAINMIWAE"
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))
 

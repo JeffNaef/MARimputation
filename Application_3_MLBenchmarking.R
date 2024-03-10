@@ -1,16 +1,6 @@
-### Application Ready to Run #####
 
+### This is the Gaussian Shift Example #####
 
-##Need a different dataset here.
-
-# Potential datets:
-#yeast
-
-#######################################
-###One real dataset with ampute MAR ###
-#######################################
-
-###Need to find a solution for binary variables!!!
 
 require(energy)
 require(mice)
@@ -56,16 +46,15 @@ source("helpers.R")
 #install.packages("reticulate")
 library(reticulate)
 
-
 ## Better code
-#Sys.setenv("gain_env" =  path.expand("~/anaconda3/envs/gain_env"))
-#use_python(path.expand("~/opt/anaconda3/envs/gain_env/bin/python"))
-#use_condaenv(path.expand("~/opt/anaconda3/envs/gain_env"))
+Sys.setenv("gain_env" =  path.expand("~/anaconda3/envs/gain_env"))
+use_python(path.expand("~/opt/anaconda3/envs/gain_env/bin/python"))
+use_condaenv(path.expand("~/opt/anaconda3/envs/gain_env"))
 
-## For Jeff
-Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
-#use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
-use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
+# ## For Jeff
+# Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
+# #use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
+# use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
 
 
 py_config()
@@ -79,193 +68,192 @@ argparse <- import("argparse")  #pip install argparse
 
 reticulate::source_python("gain.py") #there will be  warning but don't worry
 
-##TO DO:
-##- Try to include GAIN into doimputation!
-##- Fix DRF imputation
+
+
+## Add MIWAE here:
+methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN")
+
+
+nrep.total<-10
 
 
 
-##Add drf!!
-#methods <- c("DRF", "cart", "missForest")
+dataset <- "multivariateGaussian"
 
-#methods <- c("DRF", "cart")
-#methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob")
-## Add MIPCA:
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "mipca", "GAIN")
-
-
-
-m<-1
-
-
-
-
-# data sets we use in the paper
-# real data sets: dataset = ...
-# "airfoil","Boston","concrete.compression","connectionist.bench.vowel",
-# "yacht","climate.model.crashes", "CASchools", "ecoli","wine","yeast", "ionosphere"
-# "iris","concrete.slump","seeds","planning.relax",
-
-
+## TO DO
+## 1.Create Nice multivariate Gaussian dataset with 3-4 patterns with changing distribution!! (say 5 fully observed values and
+## that change their distribution in each pattern + always the same conditional distribution)
+## => Show how hard imputation can be + score proper + energy distance useful
+## 2. Use real dataset with ampute MAR
+## => Show score proper + energy distance useful
+## 3. Use spam dataset and impute with DRF block + GAIN
+m <- 1
 
 
 set.seed(2) #1
 seeds <- sample(c(0:2000),100,replace = FALSE)
 
-######################################################################################################
-########################################### mask, imputation and evaluation ##########################
-######################################################################################################
 
+
+
+# Given the observed data build the data containing missing values
+Beta<-matrix(runif(n=9, min=-2, max=2), nrow=3,ncol=3)
+
+N<-500
+
+## Build the observed data
+Xobs1<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+Xobs2<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+Xobs3<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+
+Xobs1tranformed<-t(apply(Xobs1,1,function(x){ 
+  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
+Xobs2tranformed<-t(apply(Xobs2,1,function(x){ 
+  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
+Xobs3tranformed<-t(apply(Xobs3,1,function(x){ 
+  c(x[3]*sin(x[1]*x[2]),x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
+
+# matrix(Xobs1, nrow=nrow(Xobs1), )
+X.NA1 <- Xobs1tranformed%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA2 <- Xobs2tranformed%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA3 <- Xobs3tranformed%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+
+#Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
+
+M1<-matrix(c(1,0,0), nrow=10*N, ncol=3, byrow=T)
+M2<-matrix(c(0,1,0), nrow=10*N, ncol=3, byrow=T)
+M3<-matrix(c(0,0,1), nrow=10*N, ncol=3, byrow=T)
+
+#FullM<-cbind( rbind( M1, M2, M3 ), matrix(0, nrow=3*10000, ncol=3)    )
+
+
+
+#length(ids.jack)
+#Results <- lapply(1:10, function(s){
 Results<-list()
 
-
-
-#Resample data
-X <- genData_real(dataset = "real_spam", n = n)
-X <- as.matrix(X)
-colnames(X)<-NULL
-d <- ncol(X)
-n.train <- nrow(X)
-
-colnames(X) <- paste0("X",1:ncol(X))
-
-#X.NA <- genMask(X, mech = missing.mech, pmiss=pmiss)
-##Focus on this!
-
-#patterns<-ampute.default.patterns(d )[1:5,]
-
-
-
-
-#patterns[1,d-2]<-0
-#patterns[2,d-1]<-0
-#patterns[3,d]<-0
-
-M<-apply(X,2, function(x) sample(c(0,1), size=length(x), replace=T, prob = c(1-0.2,0.2) )  )
-X.NA<-X
-X.NA[M==1] <- NA
-
-X <- X[rowSums(is.na(X.NA)) < d,]
-X.NA <- X.NA[rowSums(is.na(X.NA)) < d,]
-
-
-
-################################## imputations #########################################
-########################################################################################
-
-## Add drf
-
-imputations <- doimputation(X.NA=X.NA, methods=methods, m=m) # , blocksize=2
-methods<-imputations$methods
-
-imputations <-imputations$imputations
-
-# append the truth, that is X
-
-# for ( i in 1:m){
-#   
-#   if (data.type == "simulated"){
-#     imputations[["truth"]][[i]] <- as.data.frame(X)
-#   }else{ imputations[["truth"]][[i]] <- as.data.frame(X)}
-#   
-#   names(imputations[["truth"]])[[i]] <- paste0(i)
-# }
-# 
-# methods <- c(methods, "truth")
-# names(imputations) <- methods
-
-imputationfuncs<-list()
-for (method in methods){
-  ##Probably not the smartes solution
-  imputationfuncs[[method]][[1]] <- method
-  imputationfuncs[[method]][[2]] <- function(X,m, method){ 
-    doimputation(X.NA=X, methods=method, m=m,print=F, visitSequence="arabic", maxit = 1)}
-}
-################################## evaluations #########################################
-########################################################################################
-
-# #Step 1: Without access to true underlying data, check Iscore
-start_time <- Sys.time()
-new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf2", imputationfuncs=imputationfuncs, projections=T, projectionsize=10)
-end_time <- Sys.time()
-
-end_time-start_time
-
-
-
-
-new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
-
-
-#Step 2: With access to the full data, check energy score:
-# So far only for m=1!!!
-escore<-rep(0, length(methods))
-names(escore)<-methods
-for (method in methods){
+for (s in 1:10){
+  set.seed(seeds[s])
   
-  for (j in 1:m){
-    
-    Ximp<-imputations[[method]][[j]]
-    colnames(Ximp)<-paste0("X",1:ncol(X))
-    escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )
-    
+  
+  
+  X<-cbind( rbind( X.NA1[ (N*(s-1)+1):(N*s),], 
+                   X.NA2[ (N*(s-1)+1):(N*s),], X.NA3[ (N*(s-1)+1):(N*s),]), 
+            rbind(Xobs1[ (N*(s-1)+1):(N*s),], Xobs2[ (N*(s-1)+1):(N*s),], Xobs3[ (N*(s-1)+1):(N*s),])    )
+  M<-cbind( rbind( M1[ (N*(s-1)+1):(N*s),], M2[ (N*(s-1)+1):(N*s),], M3[ (N*(s-1)+1):(N*s),] ), 
+            matrix(0, nrow=3*N, ncol=3)    )
+  X.NA<-X
+  X.NA[M==1] <- NA
+  
+  colnames(X)<-NULL
+  colnames(X)<-paste0("X",1:6)
+  
+  ################################## imputations #########################################
+  ########################################################################################
+  
+  ## Add drf
+  
+  imputations <- doimputation(X.NA=X.NA, methods=methods, m=m)
+  methods<-imputations$methods
+  
+  imputations <-imputations$imputations
+  
+  
+  imputationfuncs<-list()
+  for (method in methods){
+    ##Probably not the smartes solution
+    imputationfuncs[[method]][[1]] <- method
+    imputationfuncs[[method]][[2]] <- function(X,m, method){ 
+      doimputation(X.NA=X, methods=method, m=m,print=F, visitSequence="arabic", maxit = 1)}
   }
-  escore[method] <- -1/m*escore[method]
+  ################################## evaluations #########################################
+  ########################################################################################
+  
+  #Step 1: Without access to true underlying data, check Iscore
+  
+  
+  start_time <- Sys.time()
+  new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf", imputationfuncs=imputationfuncs)
+  end_time <- Sys.time()
+  
+  end_time-start_time
+  
+  
+  
+  new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
+  
+  #Step 2: With access to the full data, check energy score:
+  # So far only for m=1!!!
+  escore<-rep(0, length(methods))
+  names(escore)<-methods
+  for (method in methods){
+    
+    for (j in 1:m){
+      
+      Ximp<-imputations[[method]][[j]]
+      
+      
+      colnames(Ximp)<-paste0("X",1:ncol(X))
+      escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )
+      
+    }
+    escore[method] <- -1/m*escore[method]
+  }
+  
+  print("drf-score2:")
+  print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
+  print("e-score")
+  print( sort( round(escore/sum(escore),3) , decreasing=T)   )
+  
+  print(paste0("nrep ",s, " out of ", nrep.total ))
+  
+  Results[[s]] <- list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore)
+  
+  
+  #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
+  
+  
 }
 
 
-#  print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
-#  print( sort( round( unlist(new.score.imp)/sum(unlist(new.score.imp)),3) , decreasing=T)   )
-#  print( sort( round(escore/sum(escore),3) , decreasing=T)   )
+## Analysis
 
-print("m-score2:")
-print( sort( round( unlist(new.score.imp)/sum(unlist(new.score.imp)),3) , decreasing=T)   )
-print("e-score")
-print( sort( round(escore/sum(escore),3) , decreasing=T)   )
+##Aspect Ratio: 1000 x 1000
+par(mfrow=c(2,1))
 
-
-Results <- list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore)
-
-#return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
-
-#}
+scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$new.score.drf)))
+meanvalsnewscore<- colMeans(scoredata)
+boxplot(scoredata[,order(meanvalsnewscore)], cex.axis=1.5)
 
 
+scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$new.score.imp)))
+meanvalsnewscore<- colMeans(scoredata)
+boxplot(scoredata[,order(meanvalsnewscore)], cex.axis=1.5)
+
+
+par(mfrow=c(1,1))
+energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$energy.score))
+meanvalsenergy<- colMeans(energydata)
+boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
 
 
 
 
-filename = "Application_3_ML"
+
+
+
+filename ="Application_3_withGAINMIWAE"
+
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))
 
 
 
-RMSE<-list()
-## RMSE 
-for (method in methods){
-  
-  
-  RMSE[[method]]<-norm(as.matrix(imputations[[method]][[1]] - X) , type="F")
-  
-}
-sort(unlist(RMSE), decreasing=T)
-res3<-unlist(RMSE)
 
 
 
-res1<-sort(unlist(new.score.imp), decreasing=T )
-res2<-escore[order(-res1)]
-
-res2<-sort(escore, decreasing=T)
-res1<-new.score.imp[order(-escore)]
 
 
-Restable<-cbind(res1,res2)
-colnames(Restable)<-c("drf-I-score", "Full Data Score")
-
-
-xtable(Restable)
 
 
 

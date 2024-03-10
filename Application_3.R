@@ -66,8 +66,9 @@ library(reticulate)
 #methods <- c("DRF", "cart")
 #methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob")
 ## Add MIPCA:
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "mipca")
+#methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "mipca")
 
+methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample")
 
 
 m<-1
@@ -216,7 +217,7 @@ Results<-list()
 
 
 
-filename = "Application_3_withMIPCA"
+filename = "Application_3_withsample"
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))
 

@@ -83,13 +83,4 @@ lm(y~x, data=impcart)
 lm(y~x, data=as.data.frame(data[complete.cases(data),])   )
 
 
-##First version of the new scoring function
-X<-data
 
-imputations <-imputations$imputations
-imputations$normpred[[1]] <-impnormpredict
-imputations$truth[[1]] <- truedata
-
-# unconditional score is not valid!
-#Iscores_new(X,imputations, score="unconditional")
-Iscores_new(X,imputations, score="conditional")

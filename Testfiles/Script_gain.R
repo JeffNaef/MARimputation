@@ -13,9 +13,6 @@ use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
 
 py_config()
 
-
-
-
 #Required Python Packages
 tensorflow <- import("tensorflow")
 numpy <- import("numpy")
@@ -24,8 +21,6 @@ keras <- import("keras")
 argparse <- import("argparse")  #pip install argparse
 sys<- import("sys")
 reticulate::source_python("gain.py") #there will be  warning but don't worry
-
-
 
 # Example usage:
 n <- 2000
@@ -56,14 +51,6 @@ X_imputed <- gain(X_NA, gain_parameters)
 # conda install pytorch::pytorch torchvision torchaudio -c pytorch
 # conda install  -c conda-forge scikit-learn scipy
 # conda install pandas
-
-Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
-#use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
-use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
-
-py_config()
-
-
 
 #Required Python Packages
 torch <- import("torch") 
