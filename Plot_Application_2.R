@@ -43,18 +43,59 @@ source("helpers.R")
 #source("Iscores_new.R")
 
 
-##Add drf!!
-#methods <- c("DRF", "cart","norm.predict", "missForest", "norm.nob")
-## Add MIPCA:
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "mipca")
+#install.packages("reticulate")
+library(reticulate)
 
+## Better code
+#Sys.setenv("gain_env" =  path.expand("~/anaconda3/envs/gain_env"))
+#use_python(path.expand("~/opt/anaconda3/envs/gain_env/bin/python"))
+#use_condaenv(path.expand("~/opt/anaconda3/envs/gain_env"))
+
+
+
+##Laptop
+Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
+#use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
+use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
+
+## Write 
+# conda activate gain_env
+## in the terminal!
+
+py_config()
+
+
+###MIWAE method
+torch <- import("torch") 
+torchvision <- import("torchvision")
+numpy <- import("numpy")
+scipy <- import("scipy")
+pandas <- import("pandas")
+sklearn<- import("sklearn")
+
+###GAIN method
+#Required Python Packages
+tensorflow <- import("tensorflow")
+numpy <- import("numpy")
+tqdm <- import("tqdm")
+keras <- import("keras")
+argparse <- import("argparse")  #pip install argparse
+sys<- import("sys")
+
+
+
+
+reticulate::source_python("gain.py") #there will be  warning but don't worry 
+reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
+
+
+## Add MIWAE here:
+methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN", "MIWAE")
+#methods <- c(  "GAIN", "MIWAE")
 
 nrep.total<-10
 
 
-
-
-## Maybe use spam??
 
 dataset <- "multivariateGaussian"
 
@@ -84,17 +125,9 @@ Xobs1<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
 Xobs2<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
 Xobs3<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
 
-Xobs1tranformed<-t(apply(Xobs1,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
-Xobs2tranformed<-t(apply(Xobs2,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
-Xobs3tranformed<-t(apply(Xobs3,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]),x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
-
-# matrix(Xobs1, nrow=nrow(Xobs1), )
-X.NA1 <- Xobs1tranformed%*%Beta+matrix(Xobs1[,3]/(1+Xobs1[,3]), ncol=3, nrow=nrow(Xobs1), byrow=F)*  genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3  )
-X.NA2 <- Xobs2tranformed%*%Beta+ matrix(Xobs2[,3]/(1+Xobs2[,3]), ncol=3, nrow=nrow(Xobs1), byrow=F)*genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-X.NA3 <- Xobs3tranformed%*%Beta+ matrix(Xobs3[,3]/(1+Xobs3[,3]), ncol=3, nrow=nrow(Xobs1), byrow=F)*genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA1 <- Xobs1%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA2 <- Xobs2%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA3 <- Xobs3%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
 
 #Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
 
@@ -110,7 +143,7 @@ M3<-matrix(c(0,0,1), nrow=10*N, ncol=3, byrow=T)
 #Results <- lapply(1:10, function(s){
 Results<-list()
 
-for (s in 1:5){
+
   set.seed(seeds[s])
   
   
@@ -130,52 +163,35 @@ for (s in 1:5){
   ########################################################################################
   
   ## Add drf
-  
+  ## Deactivate standardization for MIWAE here!!!!
   imputations <- doimputation(X.NA=X.NA, methods=methods, m=m)
   methods<-imputations$methods
   
   imputations <-imputations$imputations
   
   
-  imputationfuncs<-list()
-  for (method in methods){
-    ##Probably not the smartes solution
-    imputationfuncs[[method]][[1]] <- method
-    imputationfuncs[[method]][[2]] <- function(X,m, method){ 
-      doimputation(X.NA=X, methods=method, m=m,print=F, visitSequence="arabic", maxit = 1)}
-  }
+  # imputationfuncs<-list()
+  # for (method in methods){
+  #   ##Probably not the smartes solution
+  #   imputationfuncs[[method]][[1]] <- method
+  #   imputationfuncs[[method]][[2]] <- function(X,m, method){ 
+  #     doimputation(X.NA=X, methods=method, m=m,print=F, visitSequence="arabic", maxit = 1)}
+  # }
   ################################## evaluations #########################################
   ########################################################################################
   
   #Step 1: Without access to true underlying data, check Iscore
   
   
-  start_time <- Sys.time()
-  new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf", imputationfuncs=imputationfuncs)
-  end_time <- Sys.time()
-  
-  end_time-start_time
-  
-  start_time <- Sys.time()
-  new.score.list.imp <- Iscores_new(X.NA,imputations,score="mulitpleimp", imputationfuncs=imputationfuncs)
-  end_time <- Sys.time()
-  
-  
   # start_time <- Sys.time()
-  # new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf2", imputationfuncs=imputationfuncs)
+  # new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf", imputationfuncs=imputationfuncs)
   # end_time <- Sys.time()
   # 
   # end_time-start_time
   # 
-  # start_time <- Sys.time()
-  # new.score.list.imp <- Iscores_new(X.NA,imputations,score="mulitpleimp2", imputationfuncs=imputationfuncs)
-  # end_time <- Sys.time()
-  
-  end_time-start_time
-  
-  
-  new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
-  new.score.imp <- unlist(lapply(new.score.list.imp, function(x) x$score))
+  # 
+  # 
+  # new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
   
   #Step 2: With access to the full data, check energy score:
   # So far only for m=1!!!
@@ -195,41 +211,29 @@ for (s in 1:5){
     escore[method] <- -1/m*escore[method]
   }
   
-  print("drf-score2:")
-  print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
-  print("m-score2:")
-  print( sort( round( unlist(new.score.imp)/sum(unlist(new.score.imp)),3) , decreasing=T)   )
+  #print("drf-score2:")
+  #print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
   print("e-score")
   print( sort( round(escore/sum(escore),3) , decreasing=T)   )
   
   print(paste0("nrep ",s, " out of ", nrep.total ))
   
-  Results[[s]] <- list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore)
+  Results[[s]] <- list(energy.score=escore)
   
   
   #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
   
   
-}
+
 
 
 ## Analysis
-
-##Aspect Ratio: 1000 x 1000
-par(mfrow=c(2,1))
-
-scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$new.score.drf)))
-meanvalsnewscore<- colMeans(scoredata)
-boxplot(scoredata[,order(meanvalsnewscore)], cex.axis=1.5)
-
-
-scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$new.score.imp)))
-meanvalsnewscore<- colMeans(scoredata)
-boxplot(scoredata[,order(meanvalsnewscore)], cex.axis=1.5)
+  
 
 
 par(mfrow=c(1,1))
 energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$energy.score))
+energydata<-energydata[,!(colnames(energydata) %in% "sample")]
 meanvalsenergy<- colMeans(energydata)
 boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
 
@@ -239,11 +243,11 @@ boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
 
 
 
-filename ="Application_5_withMIPCA_O"
+filename ="Application_1_withGAINMIWAE"
 
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))
-# 
+
 
 
 

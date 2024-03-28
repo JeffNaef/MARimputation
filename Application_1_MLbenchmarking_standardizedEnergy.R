@@ -1,6 +1,16 @@
+### Application Ready to Run #####
 
-### This is the Gaussian Shift Example #####
 
+##Need a different dataset here.
+
+# Potential datets:
+#yeast
+
+#######################################
+###One real dataset with ampute MAR ###
+#######################################
+
+###Need to find a solution for binary variables!!!
 
 require(energy)
 require(mice)
@@ -43,13 +53,16 @@ source("helpers.R")
 #source("Iscores_new.R")
 
 
+
 #install.packages("reticulate")
 library(reticulate)
+
 
 ## Better code
 #Sys.setenv("gain_env" =  path.expand("~/anaconda3/envs/gain_env"))
 #use_python(path.expand("~/opt/anaconda3/envs/gain_env/bin/python"))
 #use_condaenv(path.expand("~/opt/anaconda3/envs/gain_env"))
+
 
 ##Laptop
 Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
@@ -88,35 +101,23 @@ reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't 
 methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN", "MIWAE")
 
 
-py_config()
-
-#Required Python Packages
-tensorflow <- import("tensorflow")
-numpy <- import("numpy")
-tqdm <- import("tqdm")
-keras <- import("keras")
-argparse <- import("argparse")  #pip install argparse
-sys<- import("sys")
-torch <- import("torch") 
-numpy <- import("numpy")
-scipy <- import("scipy")
-pandas <- import("pandas")
-sklearn<- import("sklearn")
-torchvision <- import("torchvision")
-
-reticulate::source_python("gain.py") #there will be  warning but don't worry 
-reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
-
-## Add MIWAE here:
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN", "MIWAE")
 
 
+missing.mech <- "MAR"
+pmiss <- 0.6
 nrep.total<-10
 
 
 
-dataset <- "multivariateGaussian"
 
+## Maybe use spam??
+
+#dataset <- "multivariateGaussian"
+#data.type <- "simulated"
+dataset <- "real_airquality"
+#dataset <- "yeast"
+#dataset <- "real_birthdata"
+data.type <- "real"
 ## TO DO
 ## 1.Create Nice multivariate Gaussian dataset with 3-4 patterns with changing distribution!! (say 5 fully observed values and
 ## that change their distribution in each pattern + always the same conditional distribution)
@@ -124,72 +125,83 @@ dataset <- "multivariateGaussian"
 ## 2. Use real dataset with ampute MAR
 ## => Show score proper + energy distance useful
 ## 3. Use spam dataset and impute with DRF block + GAIN
+
+
+# data sets we use in the paper
+# real data sets: dataset = ...
+# "airfoil","Boston","concrete.compression","connectionist.bench.vowel",
+# "yacht","climate.model.crashes", "CASchools", "ecoli","wine","yeast", "ionosphere"
+# "iris","concrete.slump","seeds","planning.relax",
+
+
+parallelize <- TRUE
+num.trees.per.proj <- 5 # need to be at least 2
+min.node.size <- 10
 m <- 1
+n<-2000
+real.data <- TRUE
+n.cores <- 10
+frac.subsample<-0.9
 
 
 set.seed(2) #1
 seeds <- sample(c(0:2000),100,replace = FALSE)
 
+######################################################################################################
+########################################### mask, imputation and evaluation ##########################
+######################################################################################################
 
-
-
-# Given the observed data build the data containing missing values
-Beta<-matrix(runif(n=9, min=-2, max=2), nrow=3,ncol=3)
-
-N<-500
-
-## Build the observed data
-Xobs1<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs2<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs3<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-
-Xobs1tranformed<-t(apply(Xobs1,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
-Xobs2tranformed<-t(apply(Xobs2,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
-Xobs3tranformed<-t(apply(Xobs3,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]),x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
-
-# matrix(Xobs1, nrow=nrow(Xobs1), )
-X.NA1 <- Xobs1tranformed%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-X.NA2 <- Xobs2tranformed%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-X.NA3 <- Xobs3tranformed%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-
-#Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
-
-M1<-matrix(c(1,0,0), nrow=10*N, ncol=3, byrow=T)
-M2<-matrix(c(0,1,0), nrow=10*N, ncol=3, byrow=T)
-M3<-matrix(c(0,0,1), nrow=10*N, ncol=3, byrow=T)
-
-#FullM<-cbind( rbind( M1, M2, M3 ), matrix(0, nrow=3*10000, ncol=3)    )
-
-
+Results<-list()
 
 #length(ids.jack)
 #Results <- lapply(1:10, function(s){
-Results<-list()
 
 for (s in 1:10){
+  
   set.seed(seeds[s])
   
   
+  #Resample data
+  X <- genData_real(dataset = dataset, n = n)
+  X <- as.matrix(X)
+  d <- ncol(X)
+  colnames(X)<-paste0("X", 1:d)
+  n.train <- nrow(X)
   
-  X<-cbind( rbind( X.NA1[ (N*(s-1)+1):(N*s),], 
-                   X.NA2[ (N*(s-1)+1):(N*s),], X.NA3[ (N*(s-1)+1):(N*s),]), 
-            rbind(Xobs1[ (N*(s-1)+1):(N*s),], Xobs2[ (N*(s-1)+1):(N*s),], Xobs3[ (N*(s-1)+1):(N*s),])    )
-  M<-cbind( rbind( M1[ (N*(s-1)+1):(N*s),], M2[ (N*(s-1)+1):(N*s),], M3[ (N*(s-1)+1):(N*s),] ), 
-            matrix(0, nrow=3*N, ncol=3)    )
-  X.NA<-X
-  X.NA[M==1] <- NA
+  #X.NA <- genMask(X, mech = missing.mech, pmiss=pmiss)
+  ##Focus on this!
+  
+  #patterns<-ampute.default.patterns(d )[1:5,]
+  
+  
+  patterns<-matrix(1, nrow=4, ncol=d)
+  patterns[1,1]<-0
+  patterns[2,2]<-0
+  patterns[3,3]<-0
+  patterns[4,4]<-0
+  
+  #patterns[1,d-2]<-0
+  #patterns[2,d-1]<-0
+  #patterns[3,d]<-0
+  
+  X.NA<-ampute(X,
+               prop = pmiss,
+               patterns = patterns,
+               freq = NULL,
+               mech = missing.mech)$amp
+  
+  # Throw away observations which are only NA
+  X <- X[rowSums(is.na(X.NA)) < d,]
+  X.NA <- X.NA[rowSums(is.na(X.NA)) < d,]
+  
   
   colnames(X)<-NULL
-  colnames(X)<-paste0("X",1:6)
   
   ################################## imputations #########################################
   ########################################################################################
   
   ## Add drf
-  ## Deactivate standardization for MIWAE here!!!!
+  
   imputations <- doimputation(X.NA=X.NA, methods=methods, m=m)
   methods<-imputations$methods
   
@@ -203,23 +215,33 @@ for (s in 1:10){
   #   imputationfuncs[[method]][[2]] <- function(X,m, method){ 
   #     doimputation(X.NA=X, methods=method, m=m,print=F, visitSequence="arabic", maxit = 1)}
   # }
-  # ################################## evaluations #########################################
-  # ########################################################################################
-  # 
-  # #Step 1: Without access to true underlying data, check Iscore
-  # 
-  # 
+  ################################## evaluations #########################################
+  ########################################################################################
+  
+  #Step 1: Without access to true underlying data, check Iscore
+  
+  
   # start_time <- Sys.time()
   # new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf", imputationfuncs=imputationfuncs)
   # end_time <- Sys.time()
   # 
   # end_time-start_time
-  #new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
+  # 
+  # 
+  # 
+  # new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
   
   #Step 2: With access to the full data, check energy score:
   # So far only for m=1!!!
   escore<-rep(0, length(methods))
   names(escore)<-methods
+  colnames(X)<-paste0("X",1:ncol(X))
+  
+  ## scale both X and Ximp with the same mean and variance!!
+  X.mean <- colMeans(X, na.rm = T)
+  X.var<- apply(X,2, function(x) var(x, na.rm=T))
+  X0<-sapply(1:ncol(X), function(j)  (X[,j] -  X.mean[j])/sqrt(X.var[j])   )
+  
   for (method in methods){
     
     for (j in 1:m){
@@ -228,12 +250,17 @@ for (s in 1:10){
       
       
       colnames(Ximp)<-paste0("X",1:ncol(X))
-      escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )
+      
+      Ximp<-sapply(1:ncol(Ximp), function(j)  (Ximp[,j] -  X.mean[j])/sqrt(X.var[j])   )
+      
+      escore[method]<-escore[method]+eqdist.e( rbind(X0,Ximp), c(nrow(X0), nrow(Ximp))  )
       
     }
     escore[method] <- -1/m*escore[method]
   }
   
+  #print("drf-score2:")
+  #print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
   print("e-score")
   print( sort( round(escore/sum(escore),3) , decreasing=T)   )
   
@@ -241,11 +268,12 @@ for (s in 1:10){
   
   Results[[s]] <- list(energy.score=escore)
   
-  
   #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
   
-  
 }
+
+
+
 
 
 ## Analysis
@@ -262,14 +290,9 @@ boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
 
 
 
-
-filename ="Application_3_withGAINMIWAE"
-
+filename = "Application_2_withGAINMIWAE_standardized"
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))
-
-
-
 
 
 

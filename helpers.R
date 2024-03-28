@@ -251,7 +251,8 @@ for (j in names(dimwithNA)[1:maxlength]){
         
       }else if (score=="mulitpleimp"){
 
-        
+        #Ximp1<-Ximp[M[,j]==1, ]
+        #Ximp0<-Ximp[M[,j]==0, ]
         # Problem with Categorical variables!!
         
         # Train DRF on imputed data
@@ -395,7 +396,7 @@ blockmiceDRF<-function(data, blocksize=1, blocklist=NULL,num.trees=10, num.featu
   listindex<-lapply(blocklist, function(x) any(is.na(data[,x]))  )
   blocklist <- blocklist[ do.call(rbind,listindex)]
   
-  return(mymice(data, method="drffuncmult", num.trees=num.trees, num.features=num.features, min.node.size=min.node.size, m=m, blocks = blocklist, robust=robust, ... ))
+  return(mymice(data, method="drffuncmult", num.trees=num.trees, num.features=num.features, min.node.size=min.node.size, m=m, blocks = blocklist, robust=robust, remove.collinear=F, ... ))
   
 # ### This needs to be improved!
 #   if (blocksize > 1){
@@ -1121,7 +1122,7 @@ doimputation <- function(X.NA, methods, m=m,...){
         batch_size = 64L,
         hint_rate = 0.9,
         alpha = 10, 
-        iterations = 2000L
+        iterations = 10000L
       )
       X_imputed<-NA
       counter <- 0
@@ -1135,7 +1136,55 @@ doimputation <- function(X.NA, methods, m=m,...){
       }else{
       imputations[[method]][[1]] <- X_imputed
       }
-    }else {
+    }else if (method=="MIWAE"){
+      
+      
+      if (m > 1){
+        
+        stop("No Multiple imputation possible")
+      }
+      
+      #args<-list(...)
+      #X<-args$X
+      
+      ### TO DO here: Need to scale and then scale back!!
+      
+      X.NA<-as.matrix(X.NA)
+      
+      # Standardize without NAs
+      X.NA.mean <- colMeans(X.NA, na.rm = T)
+      X.NA.var<- apply(X.NA,2, function(x) var(x, na.rm=T))
+      
+      #X.NA.mean<-rep(0, ncol(X.NA))
+      #X.NA.var<-rep(1, ncol(X.NA))
+      
+      # zero imputation
+      X.zero = X.NA
+      X.zero[is.na(X.zero)] <- 0
+      X.zero.stand<-sapply(1:ncol(X.zero), function(j)  (X.zero[,j] -  X.NA.mean[j])/sqrt(X.NA.var[j])   )
+      mask <- is.finite(X.NA)
+    
+      
+      X_imputed.stand<-NA
+      counter <- 0
+      while (any(is.na(X_imputed.stand))& counter < 10){
+        counter<-counter +1 
+        #test = miwae(X.zero, X, mask)
+        imp = miwae(X.zero.stand, X.zero.stand, mask)
+        X_imputed.stand = imp[1][[1]]
+      }
+      X_imputed<-sapply(1:ncol(X.zero), function(j) X_imputed.stand[,j]*sqrt(X.NA.var[j]) +  X.NA.mean[j]    )
+      
+      
+      
+      if (any(is.na(X_imputed))){
+        imputations[[method]][[1]] <- NA
+      }else{
+        imputations[[method]][[1]] <- X_imputed
+      }
+      
+      
+      }else {
 
       imp <- tryCatch({
 
@@ -1755,8 +1804,7 @@ mysampler <- function (data, m, ignore, where, imp, blocks, method, visitSequenc
               ###Problem: observed parts for the batch can be empty!!
               imputes <- do.call(fm, args = list(data = data, 
                                                  type = type, ...))
-              
-              ###Continue checking from here!!
+          
             }
             else {
               stop("Cannot call function of type ", calltype, 

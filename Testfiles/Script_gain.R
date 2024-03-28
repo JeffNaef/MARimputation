@@ -11,6 +11,10 @@ Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
 #use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
 use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
 
+## Write 
+# conda activate gain_env
+## in the terminal!
+
 py_config()
 
 #Required Python Packages
@@ -33,6 +37,11 @@ M <- apply(X, 2, function(x) sample(c(0, 1), size = length(x), replace = TRUE, p
 X_NA<-X
 X_NA[M == 1] <- NA
 
+
+
+
+
+
 # GAIN parameters
 gain_parameters =  list(
   batch_size = 64L,
@@ -49,7 +58,8 @@ X_imputed <- gain(X_NA, gain_parameters)
 
 #In Terminal:
 # conda install pytorch::pytorch torchvision torchaudio -c pytorch
-# conda install  -c conda-forge scikit-learn scipy
+# conda install  -c conda-forge scikit-learn 
+# conda install  -c conda-forge scipy
 # conda install pandas
 
 #Required Python Packages
@@ -57,7 +67,7 @@ torch <- import("torch")
 numpy <- import("numpy")
 scipy <- import("scipy")
 pandas <- import("pandas")
-sklearn <- import("sklearn")
+sklearn<- import("sklearn")
 torchvision <- import("torchvision")
 
 reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
@@ -70,4 +80,9 @@ mask <- is.finite(X_miss)
 test = miwae(X_NA, X, mask)
 
 X_imputed_miwae = test[1][[1]]
+
+## without X, I hope this is still correct!
+
+test = miwae(X_NA, X_NA, mask)
+X_imputed_miwae2 = test[1][[1]]
 

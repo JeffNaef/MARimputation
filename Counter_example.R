@@ -43,7 +43,6 @@ hist(Xstar[Mindex==1 | Mindex==2,1], xlab="",main="", probability=T)
 ###Example 2: Showing MAR allows for changes in observed distribution
 library(MASS)
 source("helpers.R")
-require(engression)
 require(drf)
 n<-10000
 U<-runif(n)
