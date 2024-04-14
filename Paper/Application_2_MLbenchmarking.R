@@ -125,9 +125,9 @@ Xobs1<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
 Xobs2<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
 Xobs3<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
 
-X.NA1 <- Xobs1%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-X.NA2 <- Xobs2%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-X.NA3 <- Xobs3%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA1 <- Xobs1%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA2 <- Xobs2%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA3 <- Xobs3%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
 
 #Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
 

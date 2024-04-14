@@ -94,9 +94,9 @@ Xobs3tranformed<-t(apply(Xobs3,1,function(x){
   c(x[3]*sin(x[1]*x[2]),x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
 
 # matrix(Xobs1, nrow=nrow(Xobs1), )
-X.NA1 <- Xobs1tranformed%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-X.NA2 <- Xobs2tranformed%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-X.NA3 <- Xobs3tranformed%*%Beta+ genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA1 <- Xobs1tranformed%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA2 <- Xobs2tranformed%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA3 <- Xobs3tranformed%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
 
 #Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
 
