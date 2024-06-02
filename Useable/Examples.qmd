@@ -73,31 +73,36 @@ We now finally use the [mice](https://cran.r-project.org/web/packages/mice/mice.
 #| output: false
 library(mice)
 source("Iscore.R")
+source("miceDRF.R")
 
 X<-as.matrix(X)
 
 methods<-c("pmm",      # mice-pmm
            "cart",     # mice-cart
-           "rf",       #mice-rf
            "sample",   #mice-sample
-           "norm.nob") # Gaussian Imputation
+           "norm.nob", # Gaussian Imputation
+           "DRF")      # mice-DRF
 
 
   imputationfuncs<-list()
-  for (method in methods){
-    ##Probably not the smartes solution
-    imputationfuncs[[method]][[1]] <- method
-    imputationfuncs[[method]][[2]] <- function(X,m, method, maxit=5){ 
-      
-      tmp<-mice(X, m = m, method = method,  printFlag = F, visitSequence="arabic", maxit = maxit)
-      
-      return(mice::complete(tmp, action="all"))
-      
-      }
-  }
+for (method in methods) {
+  # Create a closure to capture the current value of 'method'
+  imputationfuncs[[method]] <- local({
+    # Capture the current value of 'method'
+    current_method <- method
+    
+    # Define the function that uses the captured 'current_method'
+    function(X, m, maxit = 5) {
+      # Perform mice imputation using the current method
+      tmp <- mice(X, m = m, method = current_method, printFlag = FALSE, visitSequence = "arabic", maxit = maxit)
+      # Return the completed datasets
+      return(mice::complete(tmp, action = "all"))
+    }
+  })
+}
 
 
-scoreslist <- Iscores_new(X,imputations=NULL,score="mIScore2", imputationfuncs=imputationfuncs, N=30)  
+scoreslist <- Iscores_new(X,imputations=NULL, imputationfuncs=imputationfuncs, N=30)  
 
 scores<-do.call(cbind,lapply(scoreslist, function(x) x$score ))
 names(scores)<-methods
