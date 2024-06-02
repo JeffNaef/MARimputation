@@ -194,9 +194,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="descriptive-statistics-with-missing-values"><strong>1) Descriptive statistics with missing values</strong></h2>
 <p>We start by inspecting various plots for the missing values:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># also on Rmistatic maybe you can use the same simulations: https://rmisstastic.netlify.app/how-to/impute/missimp</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>res<span class="ot">&lt;-</span><span class="fu">summary</span>(<span class="fu">aggr</span>(X, <span class="at">sortVar=</span><span class="cn">TRUE</span>))<span class="sc">$</span>combinations</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>res<span class="ot">&lt;-</span><span class="fu">summary</span>(<span class="fu">aggr</span>(X, <span class="at">sortVar=</span><span class="cn">TRUE</span>))<span class="sc">$</span>combinations</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <p><img src="Examples_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid" width="672"></p>
 </div>
@@ -309,9 +307,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">colMeans</span>(Xstar)<span class="sc">-</span><span class="fu">colMeans</span>(Ximp)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                max_PM2.5                    max_O3                  max_PM10 
-              -0.00055750               -0.00010875               -0.08750000 
+               0.02988000                0.00006825               -0.08600000 
                 Longitude                  Latitude                 Elevation 
-               0.01079986                0.00000000                0.30679520 
+              -0.03243501                0.00000000                0.19050000 
     Land.Use_AGRICULTURAL       Land.Use_COMMERCIAL       Land.Use_INDUSTRIAL 
                0.00000000                0.00000000                0.00000000 
    Location.Setting_RURAL Location.Setting_SUBURBAN 
@@ -319,43 +317,44 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">norm</span>(<span class="fu">cov</span>(Xstar) <span class="sc">-</span> <span class="fu">cov</span>(Ximp))<span class="sc">/</span><span class="fu">norm</span>(<span class="fu">cov</span>(Xstar))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 0.001539471</code></pre>
+<pre><code>[1] 0.003579673</code></pre>
 </div>
 </div>
 </section>
 <section id="analyse" class="level2">
 <h2 class="anchored" data-anchor-id="analyse"><strong>3) Analyse</strong></h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Apply a regression to the mulitple imputation</span></span>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Apply a regression to the multiple imputation</span></span>
 <span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>lm.mice.out <span class="ot">&lt;-</span> <span class="fu">with</span>(imp.mice, <span class="fu">lm</span>(max_O3 <span class="sc">~</span> max_PM2<span class="fl">.5</span> <span class="sc">+</span>Longitude <span class="sc">+</span>Latitude <span class="sc">+</span>Elevation <span class="sc">+</span>Land.Use_AGRICULTURAL<span class="sc">+</span>Land.Use_COMMERCIAL<span class="sc">+</span>Land.Use_INDUSTRIAL<span class="sc">+</span>Location.Setting_RURAL<span class="sc">+</span>Location.Setting_SUBURBAN))</span>
 <span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Use Rubins Rules to aggregate the estimates</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>res<span class="ot">&lt;-</span><span class="fu">pool</span>(lm.mice.out)</span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(res)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Use Rubins Rules to aggregate the estimates</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>res<span class="ot">&lt;-</span><span class="fu">pool</span>(lm.mice.out)</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(res)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>                        term      estimate    std.error    statistic        df
-1                (Intercept)  3.884093e-02 3.806153e-03 10.204772977  702.8838
-2                  max_PM2.5  1.216615e-04 5.599256e-05  2.172816218  498.3103
-3                  Longitude -1.157515e-05 2.074234e-05 -0.558044353  840.4867
-4                   Latitude  6.593801e-07 7.466715e-05  0.008830927  782.8715
-5                  Elevation -1.096344e-06 6.969435e-07 -1.573073766 1222.1328
-6      Land.Use_AGRICULTURAL  1.474898e-05 1.482957e-03  0.009945656  419.6629
-7        Land.Use_COMMERCIAL  7.179653e-04 7.009772e-04  1.024234839 1145.4176
-8        Land.Use_INDUSTRIAL -1.941025e-03 1.861652e-03 -1.042635661  526.5235
-9     Location.Setting_RURAL  1.792046e-03 1.226410e-03  1.461212878  505.3161
-10 Location.Setting_SUBURBAN  9.278167e-04 6.718359e-04  1.381016885 1794.9600
+<pre><code>                        term      estimate    std.error   statistic        df
+1                (Intercept)  3.929489e-02 3.757540e-03 10.45761017  988.7992
+2                  max_PM2.5  1.159419e-04 5.819645e-05  1.99224975  212.2122
+3                  Longitude -9.544637e-06 2.051607e-05 -0.46522743 1130.0248
+4                   Latitude -3.530013e-06 7.328762e-05 -0.04816657 1291.7748
+5                  Elevation -1.088580e-06 6.931284e-07 -1.57053192 1458.9054
+6      Land.Use_AGRICULTURAL -7.699460e-05 1.464395e-03 -0.05257776  546.3266
+7        Land.Use_COMMERCIAL  7.415961e-04 7.020305e-04  1.05635886 1087.1609
+8        Land.Use_INDUSTRIAL -1.900513e-03 1.832379e-03 -1.03718315  772.5075
+9     Location.Setting_RURAL  1.871732e-03 1.275582e-03  1.46735561  235.1812
+10 Location.Setting_SUBURBAN  8.131452e-04 7.029311e-04  1.15679215  555.0273
         p.value
-1  6.790652e-23
-2  3.026463e-02
-3  5.769627e-01
-4  9.929563e-01
-5  1.159606e-01
-6  9.920694e-01
-7  3.059406e-01
-8  2.975955e-01
-9  1.445786e-01
-10 1.674457e-01</code></pre>
+1  2.385199e-24
+2  4.762533e-02
+3  6.418582e-01
+4  9.615909e-01
+5  1.165083e-01
+6  9.580876e-01
+7  2.910390e-01
+8  2.999750e-01
+9  1.436154e-01
+10 2.478549e-01</code></pre>
 </div>
 </div>
 <p>Importantly, this works here because we have all the ingredients for the pool function, which are (according to ?pool):</p>
@@ -405,19 +404,19 @@ F-statistic: 1.644 on 9 and 1990 DF,  p-value: 0.09762</code></pre>
 <div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(<span class="fu">round</span>( (res<span class="sc">$</span>pooled<span class="sc">$</span>estimate<span class="sc">-</span>res.not.attainable<span class="sc">$</span>coefficients)<span class="sc">/</span>res.not.attainable<span class="sc">$</span>coefficients, <span class="dv">3</span>)  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                              [,1]
-(Intercept)                 -0.051
-max_PM2.5                   -0.068
-Longitude                 -881.585
-Latitude                    -1.026
-Elevation                    0.175
-Land.Use_AGRICULTURAL       -0.952
-Land.Use_COMMERCIAL          0.199
-Land.Use_INDUSTRIAL          0.092
-Location.Setting_RURAL      -0.048
-Location.Setting_SUBURBAN    0.075</code></pre>
+(Intercept)                 -0.040
+max_PM2.5                   -0.111
+Longitude                 -727.113
+Latitude                    -0.859
+Elevation                    0.166
+Land.Use_AGRICULTURAL       -1.250
+Land.Use_COMMERCIAL          0.239
+Land.Use_INDUSTRIAL          0.069
+Location.Setting_RURAL      -0.006
+Location.Setting_SUBURBAN   -0.058</code></pre>
 </div>
 </div>
-<p>This example is a very simple i.i.d. example as we have treated throughout this workshop. Of course there are many more challenges, especially also for data that may be partly dependent (for instance repeat measurement or panel data). Please refer to the provided links for more information. In particular also the task view on <a href="https://cran.r-project.org/web/views/MissingData.html">missing data</a>.</p>
+<p>Of course there are many more challenges, especially also for data that may be partly dependent (for instance repeat measurement or panel data). Most importantly, mice-cart is awesome, but it does not model the uncertainty of the missing imputation itself. As such it is technically not a proper imputation method, as one part of the uncertainty is missing. This could be an issue for confidence intervals and p-values especially in smaller samples. We also refer to the provided links for more information. In particular also the task view on <a href="https://cran.r-project.org/web/views/MissingData.html">missing data</a>.</p>
 </section>
 </section>
 
