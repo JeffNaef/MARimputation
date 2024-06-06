@@ -47,7 +47,7 @@ library(missForest)
 print("missForest loaded")
 library(Iscores)
 print("IScores loaded")
-
+library(scoringRules)
 
 source("helpers.R")
 #source("Iscores_new.R")
@@ -196,6 +196,8 @@ for (s in 1:10){
   
   
   colnames(X)<-NULL
+  colnames(X)<-paste0("X",1:ncol(X))
+  n<-nrow(X)
   
   ################################## imputations #########################################
   ########################################################################################
@@ -230,24 +232,39 @@ for (s in 1:10){
   # 
   # 
   # new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
-  
   #Step 2: With access to the full data, check energy score:
   # So far only for m=1!!!
   escore<-rep(0, length(methods))
+  ediff<-rep(0, length(methods))
+  RMSE <- rep(0, length(methods))
   names(escore)<-methods
-  colnames(X)<-paste0("X",1:ncol(X))
+  names(ediff)<-methods
+  names(RMSE) <- methods
   for (method in methods){
     
     for (j in 1:m){
       
-      Ximp<-imputations[[method]][[j]]
+      Ximp<-as.matrix(imputations[[method]][[j]])
       
       
       colnames(Ximp)<-paste0("X",1:ncol(X))
-      escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )
+      
+      ## Energy-score
+      escore[method]<-
+        escore[method]+ 0.5*scoringRules:::esC_xx(t(Ximp), w=rep(1/nrow(Ximp),nrow(Ximp)))- owndistance(X,Ximp)
+      
+      ediff[method]<-ediff[method]-eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )*(2*n)/(n^2)
+      
+      
+      RMSE[method] <-
+        RMSE[method] -  round(mean(apply(X - Ximp,1,function(x) norm(as.matrix(x), type="F"  ) )),2)
+      
+      
       
     }
-    escore[method] <- -1/m*escore[method]
+    escore[method] <- 1/m*escore[method]
+    ediff[method] <- 1/m*ediff[method]
+    RMSE[method] <- 1/m*RMSE[method]
   }
   
   #print("drf-score2:")
@@ -257,7 +274,7 @@ for (s in 1:10){
   
   print(paste0("nrep ",s, " out of ", nrep.total ))
   
-  Results[[s]] <- list(energy.score=escore)
+  Results[[s]] <- list(energy.score=escore, ediff.score=ediff, RMSE=RMSE)
   
   #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
   
@@ -269,19 +286,27 @@ for (s in 1:10){
 
 ## Analysis
 
-
 par(mfrow=c(1,1))
-energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$energy.score))
+energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$ediff.score))
 energydata<-energydata[,!(colnames(energydata) %in% "sample")]
+energydata<-energydata[,!(colnames(energydata) %in% "mean")]
+energydata<-energydata[,!(colnames(energydata) %in% "mipca")]
+
+
+## Standardize
+## Analysis
+energydata<-energydata[,!(colnames(energydata) %in% "sample")]
+energydata<-(energydata - max(energydata))/abs(min(energydata)- max(energydata))
 meanvalsenergy<- colMeans(energydata)
-boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
+
+
+meanvalsenergy<- colMeans(energydata)
+boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5, col="white")
 
 
 
 
-
-
-filename = "Application_2_withGAINMIWAE"
+filename =paste0("Application_1_", paste0(methods, collapse="_"))
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))
 

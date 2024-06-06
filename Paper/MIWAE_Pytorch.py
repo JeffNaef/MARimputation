@@ -85,7 +85,7 @@ def mse(xhat,xtrue,mask): # MSE function for imputations
 # In[ ]:
 
 h = 128 # number of hidden units in (same for all MLPs)
-d = 1 # dimension of the latent space
+d = 10 # dimension of the latent space
 K = 20
 # In[ ]:
 

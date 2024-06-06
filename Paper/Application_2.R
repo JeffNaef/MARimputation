@@ -19,14 +19,6 @@ library(softImpute)
 print("softImpute loaded")
 library(Matrix)
 print("Matrix loaded")
-library(readxl)
-print("readxl loaded")
-library(plotrix)
-print("plotrix loaded")
-library(missForest)
-print("missForest loaded")
-#library(naniar)
-#print("naniar loaded")
 require(kernlab)
 print("kernlab loaded")
 library(MASS)
@@ -37,7 +29,7 @@ library(missForest)
 print("missForest loaded")
 library(Iscores)
 print("IScores loaded")
-
+library(scoringRules)
 
 source("helpers.R")
 #source("Iscores_new.R")
@@ -48,7 +40,12 @@ source("helpers.R")
 ## Add MIPCA:
 #methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "mipca")
 ## Add mice-sample
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample")
+#methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob")
+
+methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob")
+
+
+#methods <- c("norm.predict", "norm.nob")
 
 nrep.total<-10
 
@@ -76,18 +73,34 @@ seeds <- sample(c(0:2000),100,replace = FALSE)
 
 
 # Given the observed data build the data containing missing values
-Beta<-matrix(runif(n=9, min=-2, max=2), nrow=3,ncol=3)
+#Beta<-matrix(runif(n=9, min=-2, max=2), nrow=3,ncol=3)
+d<-3
+Beta<-matrix(c(0.5,1,1.5), nrow=d,ncol=d, byrow=T)
+
 
 N<-500
 
-## Build the observed data
-Xobs1<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs2<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs3<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+C<-matrix(0, nrow=d, ncol=d)
+for (t in 1:d){
+  for (s in 1:d){
+    
+    
+    C[t,s] <- 0.5^(abs(t-s))
+    
+  }
+  
+  
+}
 
-X.NA1 <- Xobs1%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-X.NA2 <- Xobs2%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-X.NA3 <- Xobs3%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+## Build the observed data
+Xobs1<- MASS::mvrnorm(n = 10*N, mu = rep(3, d), Sigma = C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+Xobs2<- MASS::mvrnorm(n = 10*N, mu = rep(-3, d), Sigma = C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+Xobs3<- MASS::mvrnorm(n = 10*N, mu = rep(0, d), Sigma = C)#genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+
+
+X.NA1 <- Xobs1%*%Beta + matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
+X.NA2 <- Xobs2%*%Beta + matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
+X.NA3 <- Xobs3%*%Beta + matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
 
 #Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
   
@@ -118,6 +131,8 @@ for (s in 1:10){
 
   colnames(X)<-NULL
   colnames(X)<-paste0("X",1:6)
+  colnames(X)<-paste0("X",1:6)
+  n<-nrow(X)
 
   ################################## imputations #########################################
   ########################################################################################
@@ -155,88 +170,185 @@ for (s in 1:10){
   # 
   # end_time-start_time
   
+  # start_time <- Sys.time()
+  # new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf", imputationfuncs=imputationfuncs)
+  # end_time <- Sys.time()
+  # 
+  # end_time-start_time
+  
+  
+  # new.score.list.drf <- Iscores(imputations,
+  #                      methods,
+  #                      X.NA,
+  #                      num.proj=1, rescale=F, projection.function = function(X){1:ncol(X)})
+  
+  
+  new.score.list.drf <- Iscores(imputations,
+                                methods,
+                                X.NA,
+                                num.proj=20, rescale=F)
+  
   start_time <- Sys.time()
-  new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf", imputationfuncs=imputationfuncs)
+  new.score.list.imp <- Iscores_new(X.NA,imputations=imputations, imputationfuncs=imputationfuncs)
   end_time <- Sys.time()
   
   end_time-start_time
   
-  start_time <- Sys.time()
-  new.score.list.imp <- Iscores_new(X.NA,imputations,score="mulitpleimp", imputationfuncs=imputationfuncs)
-  end_time <- Sys.time()
   
-  end_time-start_time
-  
-  
- new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
+ DRIScore <- unlist(new.score.list.drf)
+ names(DRIScore) <- colnames(new.score.list.drf)
  new.score.imp <- unlist(lapply(new.score.list.imp, function(x) x$score))
 
     #Step 2: With access to the full data, check energy score:
   # So far only for m=1!!!
   escore<-rep(0, length(methods))
+  ediff<-rep(0, length(methods))
+  RMSE <- rep(0, length(methods))
   names(escore)<-methods
+  names(ediff)<-methods
+  names(RMSE) <- methods
   for (method in methods){
     
     for (j in 1:m){
     
-    Ximp<-imputations[[method]][[j]]
+    Ximp<-as.matrix(imputations[[method]][[j]])
     
     
     colnames(Ximp)<-paste0("X",1:ncol(X))
-  escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )
+   
+    ## Energy-score
+    escore[method]<-
+      escore[method]+ 0.5*scoringRules:::esC_xx(t(Ximp), w=rep(1/nrow(Ximp),nrow(Ximp)))- owndistance(X,Ximp)
+
+    ediff[method]<-ediff[method]-eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )*(2*n)/(n^2)
+    
+    
+    RMSE[method] <-
+      RMSE[method] -  round(mean(apply(X - Ximp,1,function(x) norm(as.matrix(x), type="F"  ) )),2)
+
+    
   
     }
-    escore[method] <- -1/m*escore[method]
+    escore[method] <- 1/m*escore[method]
+    ediff[method] <- 1/m*ediff[method]
+    RMSE[method] <- 1/m*RMSE[method]
   }
 
-  print("drf-score2:")
-  print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
-  print("m-score2:")
-  print( sort( round( unlist(new.score.imp)/sum(unlist(new.score.imp)),3) , decreasing=T)   )
-  print("e-score")
-  print( sort( round(escore/sum(escore),3) , decreasing=T)   )
+  # print("drf-score2:")
+  # print( sort( round( unlist(DRIScore)/sum(unlist(DRIScore)),3) , decreasing=T)   )
+  # print("m-score2:")
+  # print( sort( round( unlist(new.score.imp)/sum(unlist(new.score.imp)),3) , decreasing=T)   )
+  # print("e-score")
+  # print( sort( round(escore/sum(escore),3) , decreasing=T)   )
 
   print(paste0("nrep ",s, " out of ", nrep.total ))
 
-  Results[[s]] <- list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore)
+  Results[[s]] <- list(new.score.imp = new.score.imp, DRIScore=DRIScore , energy.score=escore, ediff.score=ediff, RMSE=RMSE)
   
   
-  #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
+  #return(list(new.score.imp = new.score.imp,DRIScore=DRIScore , energy.score=escore))
 
 
 }
 
+##Standardize
+
+
+
+
+### Version 1 ####
 
 ## Analysis
+energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$ediff.score))
+energydata<-energydata[,!(colnames(energydata) %in% "sample")]
+energydata<-(energydata - max(energydata))/abs(min(energydata)- max(energydata))
+meanvalsenergy<- colMeans(energydata)
+## Setup
+boxplot(energydata[,order(meanvalsenergy)], boxfill = NA, border = NA, ylim=c(-1,0),cex.axis=1.5,cex.lab=1.5) #invisible boxes - only axes and plot area
+##
 
-##Aspect Ratio: 1000 x 1000
-par(mfrow=c(2,1))
+boxplot(energydata[,order(meanvalsenergy)],ylab="",yaxt="n", xaxt = "n", add = TRUE, boxfill="white",
+        boxwex=0.25, at = 1:ncol(energydata) + 0.30) #shift these left by -0.15
 
-scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$new.score.drf)))
+scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$RMSE)))
 scoredata<-scoredata[,!(colnames(scoredata) %in% "sample")]
+scoredata<-(scoredata - max(scoredata))/abs(min(scoredata)- max(scoredata))
 meanvalsnewscore<- colMeans(scoredata)
-boxplot(scoredata[,order(meanvalsnewscore)], cex.axis=1.5)
-
+boxplot(scoredata[,order(meanvalsenergy)],ylab="",yaxt="n", xaxt = "n", add = TRUE, boxfill="gray",
+        boxwex=0.25, at = 1:ncol(scoredata)) #shift to the right by +0.15
 
 scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$new.score.imp)))
 scoredata<-scoredata[,!(colnames(scoredata) %in% "sample")]
+scoredata<-(scoredata - max(scoredata))/abs(min(scoredata)- max(scoredata))
 meanvalsnewscore<- colMeans(scoredata)
-boxplot(scoredata[,order(meanvalsnewscore)], cex.axis=1.5)
+boxplot(scoredata[,order(meanvalsenergy)],ylab="",yaxt="n", xaxt = "n", add = TRUE, boxfill="darkgray",
+        boxwex=0.25, at = 1:ncol(scoredata) - 0.30) #shift to the right by +0.15
+
+abline(v=1:(ncol(scoredata)-1)+0.50,lty = 2)
 
 
-par(mfrow=c(1,1))
-energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$energy.score))
+
+
+### Version with DR-I-Score ####
+
+## Analysis
+energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$ediff.score))
 energydata<-energydata[,!(colnames(energydata) %in% "sample")]
+energydata<-(energydata - max(energydata))/abs(min(energydata)- max(energydata))
 meanvalsenergy<- colMeans(energydata)
-boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
+## Setup
+boxplot(energydata[,order(meanvalsenergy)], boxfill = NA, border = NA, ylim=c(-1,0),cex.axis=1.5,cex.lab=1.5) #invisible boxes - only axes and plot area
+##
+
+boxplot(energydata[,order(meanvalsenergy)],ylab="",yaxt="n", xaxt = "n", add = TRUE, boxfill="white",
+        boxwex=0.25, at = 1:ncol(energydata) + 0.30) #shift these left by -0.15
+
+scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$DRIScore)))
+scoredata<-scoredata[,!(colnames(scoredata) %in% "sample")]
+scoredata<-(scoredata - max(scoredata))/abs(min(scoredata)- max(scoredata))
+meanvalsnewscore<- colMeans(scoredata)
+boxplot(scoredata[,order(meanvalsenergy)],ylab="",yaxt="n", xaxt = "n", add = TRUE, boxfill="gray",
+        boxwex=0.25, at = 1:ncol(scoredata)) #shift to the right by +0.15
+
+scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$new.score.imp)))
+scoredata<-scoredata[,!(colnames(scoredata) %in% "sample")]
+scoredata<-(scoredata - max(scoredata))/abs(min(scoredata)- max(scoredata))
+meanvalsnewscore<- colMeans(scoredata)
+boxplot(scoredata[,order(meanvalsenergy)],ylab="",yaxt="n", xaxt = "n", add = TRUE, boxfill="darkgray",
+        boxwex=0.25, at = 1:ncol(scoredata) - 0.30) #shift to the right by +0.15
+
+abline(v=1:(ncol(scoredata)-1)+0.50,lty = 2)
+
+# 
+# ### Version 2 ####
+# ## Analysis
+# energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$energy.score))
+# energydata<-energydata[,!(colnames(energydata) %in% "sample")]
+# energydata<--(energydata - max(energydata))/min(energydata)
+# meanvalsenergy<- colMeans(energydata)
+# ## Setup
+# boxplot(energydata[,order(meanvalsenergy)], boxfill = NA, border = NA, ylim=c(-1,0),cex.axis=1.5,cex.lab=1.5) #invisible boxes - only axes and plot areas
+# ##
+# 
+# scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$RMSE)))
+# scoredata<-scoredata[,!(colnames(scoredata) %in% "sample")]
+# scoredata<--(scoredata - max(scoredata))/min(scoredata)
+# meanvalsnewscore<- colMeans(scoredata)
+# boxplot(scoredata[,order(meanvalsenergy)],ylab="",yaxt="n", xaxt = "n", add = TRUE, boxfill="white", 
+#         boxwex=0.25, at = 1:ncol(scoredata)-0.15) #shift to the right by +0.15
+# 
+# scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$new.score.imp)))
+# scoredata<-scoredata[,!(colnames(scoredata) %in% "sample")]
+# scoredata<--(scoredata - max(scoredata))/min(scoredata)
+# meanvalsnewscore<- colMeans(scoredata)
+# boxplot(scoredata[,order(meanvalsenergy)],ylab="",yaxt="n", xaxt = "n", add = TRUE, boxfill="darkgray", 
+#         boxwex=0.25, at = 1:ncol(scoredata) + 0.15) #shift to the right by +0.15
+# 
+# abline(v=1:(ncol(scoredata)-1)+0.50,lty = 2)
+# 
 
 
-
-
-
-
-
-filename ="Application_1_withsample_O"
+filename ="Application_2_withsample_O"
 
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))

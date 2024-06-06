@@ -19,6 +19,14 @@ library(softImpute)
 print("softImpute loaded")
 library(Matrix)
 print("Matrix loaded")
+library(readxl)
+print("readxl loaded")
+library(plotrix)
+print("plotrix loaded")
+library(missForest)
+print("missForest loaded")
+#library(naniar)
+#print("naniar loaded")
 require(kernlab)
 print("kernlab loaded")
 library(MASS)
@@ -29,11 +37,10 @@ library(missForest)
 print("missForest loaded")
 library(Iscores)
 print("IScores loaded")
-library(scoringRules)
+
 
 source("helpers.R")
 #source("Iscores_new.R")
-
 
 
 #install.packages("reticulate")
@@ -74,16 +81,11 @@ keras <- import("keras")
 argparse <- import("argparse")  #pip install argparse
 sys<- import("sys")
 
-
-
 reticulate::source_python("gain.py") #there will be  warning but don't worry 
 reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
 
 ## Add MIWAE here:
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN", "MIWAE")
-
-
-#methods <- c("norm.predict", "norm.nob")
+methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN", "MIWAE", "mipca", "mean")
 
 nrep.total<-10
 
@@ -111,42 +113,71 @@ seeds <- sample(c(0:2000),100,replace = FALSE)
 
 
 # Given the observed data build the data containing missing values
-#Beta<-matrix(runif(n=9, min=-2, max=2), nrow=3,ncol=3)
-d<-3
-Beta<-matrix(c(0.5,1,1.5), nrow=d,ncol=d, byrow=T)
+Beta<-matrix(runif(n=9, min=-2, max=2), nrow=3,ncol=3)
+
+N<-1500
+
+# ## Build the observed data
+# Xobs1<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+# Xobs2<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+# Xobs3<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+# 
+# X.NA1 <- Xobs1%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+# X.NA2 <- Xobs2%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+# X.NA3 <- Xobs3%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+# 
 
 
-N<-500
+Xstar<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=6)$train
 
-C<-matrix(0, nrow=d, ncol=d)
-for (t in 1:d){
-  for (s in 1:d){
-    
-    
-    C[t,s] <- 0.5^(abs(t-s))
-    
-  }
+
+## Add: 
+pM6<-1
+pM5<-1 #1/(1+exp(-( rowMeans(Xstar[,-5]) )))
+pM4<-1 #1/(1+exp(-( rowMeans(Xstar[,-4]) )))
+pM3<-1/(1+exp(-( rowMeans(Xstar[,-3]) )))
+pM2<-1/(1+exp(-( rowMeans(Xstar[,-2]) )))
+pM1<-1/(1+exp(-( rowMeans(Xstar[,-1]) )))
+
+U6<-runif(n=length(pM3))
+U5<-runif(n=length(pM2))
+U4<-runif(n=length(pM1))
+U3<-runif(n=length(pM3))
+U2<-runif(n=length(pM2))
+U1<-runif(n=length(pM1))
+
+Mfull<-matrix(0, nrow=nrow(Xstar), ncol=ncol(Xstar))
+
+
+case<-"MNAR"
+
+if (case=="MNAR"){
   
+  ## MNAR
+  Mfull[,6]<-U6 < (1-pM6)
+  Mfull[,5]<-U5 < (1-pM5)
+  Mfull[,4]<-U4 < (1-pM4)
+  Mfull[,3]<-U3 < (1-pM3)
+  Mfull[,2]<-U2 < (1-pM2)
+  Mfull[,1]<-U1 < (1-pM1)
+}else{
+  ## MCAR
   
+  Mfull[,6]<-U6 < (1-pM6) #rep(mean(1-pM6), length(U6))
+  Mfull[,5]<-U5 < (1-pM5) #rep(mean(1-pM5), length(U6))
+  Mfull[,4]<-U4 < (1-pM4) #rep(mean(1-pM4), length(U6))
+  Mfull[,3]<-U3 < rep(mean(1-pM3), length(U6))
+  Mfull[,2]<-U2 < rep(mean(1-pM2), length(U6))
+  Mfull[,1]<-U1 < rep(mean(1-pM1), length(U6))
+  
+  #Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
 }
 
-## Build the observed data
-Xobs1<- MASS::mvrnorm(n = 10*N, mu = rep(5, d), Sigma = C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs2<- MASS::mvrnorm(n = 10*N, mu = rep(-5, d), Sigma = C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs3<- MASS::mvrnorm(n = 10*N, mu = rep(0, d), Sigma = C)#genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
 
 
-X.NA1 <- Xobs1%*%Beta + matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
-X.NA2 <- Xobs2%*%Beta + matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
-X.NA3 <- Xobs3%*%Beta + matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
-
-#Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
-
-M1<-matrix(c(1,0,0), nrow=10*N, ncol=3, byrow=T)
-M2<-matrix(c(0,1,0), nrow=10*N, ncol=3, byrow=T)
-M3<-matrix(c(0,0,1), nrow=10*N, ncol=3, byrow=T)
 
 #FullM<-cbind( rbind( M1, M2, M3 ), matrix(0, nrow=3*10000, ncol=3)    )
+
 
 
 #length(ids.jack)
@@ -158,52 +189,40 @@ for (s in 1:10){
   
   
   
-  X<-cbind( rbind( X.NA1[ (N*(s-1)+1):(N*s),], 
-                   X.NA2[ (N*(s-1)+1):(N*s),], X.NA3[ (N*(s-1)+1):(N*s),]), 
-            rbind(Xobs1[ (N*(s-1)+1):(N*s),], Xobs2[ (N*(s-1)+1):(N*s),], Xobs3[ (N*(s-1)+1):(N*s),])    )
-  M<-cbind( rbind( M1[ (N*(s-1)+1):(N*s),], M2[ (N*(s-1)+1):(N*s),], M3[ (N*(s-1)+1):(N*s),] ), 
-            matrix(0, nrow=3*N, ncol=3)    )
+  X<-Xstar[(N*(s-1)+1):(N*s),]
+  M<-Mfull[(N*(s-1)+1):(N*s),]
   X.NA<-X
   X.NA[M==1] <- NA
   
   colnames(X)<-NULL
   colnames(X)<-paste0("X",1:6)
-  
   n<-nrow(X)
   
   ################################## imputations #########################################
   ########################################################################################
   
   ## Add drf
-  ## Deactivate standardization for MIWAE here!!!!
+  
   imputations <- doimputation(X.NA=X.NA, methods=methods, m=m)
   methods<-imputations$methods
   
   imputations <-imputations$imputations
   
   
-  # imputationfuncs<-list()
-  # for (method in methods){
-  #   ##Probably not the smartes solution
-  #   imputationfuncs[[method]][[1]] <- method
-  #   imputationfuncs[[method]][[2]] <- function(X,m, method){ 
-  #     doimputation(X.NA=X, methods=method, m=m,print=F, visitSequence="arabic", maxit = 1)}
-  # }
+  imputationfuncs<-list()
+  for (method in methods){
+    ##Probably not the smartes solution
+    imputationfuncs[[method]][[1]] <- method
+    imputationfuncs[[method]][[2]] <- function(X,m, method){ 
+      doimputation(X.NA=X, methods=method, m=m,print=F, visitSequence="arabic", maxit = 1)}
+  }
   ################################## evaluations #########################################
   ########################################################################################
   
   #Step 1: Without access to true underlying data, check Iscore
   
   
-  # start_time <- Sys.time()
-  # new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf", imputationfuncs=imputationfuncs)
-  # end_time <- Sys.time()
-  # 
-  # end_time-start_time
-  # 
-  # 
-  # 
-  # new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
+  
   
   #Step 2: With access to the full data, check energy score:
   # So far only for m=1!!!
@@ -214,7 +233,7 @@ for (s in 1:10){
     for (j in 1:m){
       
       Ximp<-imputations[[method]][[j]]
-
+      
       colnames(Ximp)<-paste0("X",1:ncol(X))
       escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )*(2*n)/(n^2)
       #escore[method]<-
@@ -225,14 +244,13 @@ for (s in 1:10){
     escore[method] <- -1/m*escore[method]
   }
   
-  #print("drf-score2:")
-  #print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
+
   print("e-score")
   print( sort( round(escore/sum(escore),3) , decreasing=T)   )
   
   print(paste0("nrep ",s, " out of ", nrep.total ))
   
-  Results[[s]] <- list(energy.score=escore)
+  Results[[s]] <- list( energy.score=escore)
   
   
   #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
@@ -248,27 +266,16 @@ for (s in 1:10){
 par(mfrow=c(1,1))
 energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$energy.score))
 energydata<-energydata[,!(colnames(energydata) %in% "sample")]
-energydata<-energydata[,!(colnames(energydata) %in% "mean")]
-energydata<-energydata[,!(colnames(energydata) %in% "mipca")]
-
-
-## Standardize
-## Analysis
-energydata<-energydata[,!(colnames(energydata) %in% "sample")]
-energydata<-(energydata - max(energydata))/abs(min(energydata)- max(energydata))
 meanvalsenergy<- colMeans(energydata)
-
-
-meanvalsenergy<- colMeans(energydata)
-boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5, col="white")
+boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
 
 
 
 
 
-filename =paste0("Application_2_", paste0(methods, collapse="_"))
 
-#filename ="Application_1_withGAINMIWAE"
+
+filename =paste0("Application_5_", paste0(methods, collapse="_"))
 
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))

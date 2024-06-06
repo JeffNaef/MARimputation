@@ -37,7 +37,7 @@ library(missForest)
 print("missForest loaded")
 library(Iscores)
 print("IScores loaded")
-
+library(scoringRules)
 
 source("helpers.R")
 #source("Iscores_new.R")
@@ -84,8 +84,8 @@ sys<- import("sys")
 reticulate::source_python("gain.py") #there will be  warning but don't worry 
 reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
 
-## Add MIWAE here:
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN", "MIWAE")
+
+methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN", "MIWAE", "mipca", "mean")
 
 
 py_config()
@@ -107,8 +107,6 @@ torchvision <- import("torchvision")
 reticulate::source_python("gain.py") #there will be  warning but don't worry 
 reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
 
-## Add MIWAE here:
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN", "MIWAE")
 
 
 nrep.total<-10
@@ -132,16 +130,28 @@ seeds <- sample(c(0:2000),100,replace = FALSE)
 
 
 
+d<-3
+Beta<-diag(d)#matrix(1, nrow=d,ncol=d)
 
-# Given the observed data build the data containing missing values
-Beta<-matrix(runif(n=9, min=-2, max=2), nrow=3,ncol=3)
 
 N<-500
 
+C<-matrix(0, nrow=d, ncol=d)
+for (i in 1:3){
+  for (j in 1:3){
+    
+    
+    C[i,j] <- 0.5^(abs(i-j))
+    
+  }
+  
+  
+}
+
 ## Build the observed data
-Xobs1<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs2<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs3<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+Xobs1<- MASS::mvrnorm(n = 10*N, mu = rep(5, d), Sigma = C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+Xobs2<- MASS::mvrnorm(n = 10*N, mu = rep(-5, d), Sigma = C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+Xobs3<- MASS::mvrnorm(n = 10*N, mu = rep(0, d), Sigma = C)#genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
 
 Xobs1tranformed<-t(apply(Xobs1,1,function(x){ 
   c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
@@ -151,9 +161,9 @@ Xobs3tranformed<-t(apply(Xobs3,1,function(x){
   c(x[3]*sin(x[1]*x[2]),x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
 
 # matrix(Xobs1, nrow=nrow(Xobs1), )
-X.NA1 <- Xobs1tranformed%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-X.NA2 <- Xobs2tranformed%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
-X.NA3 <- Xobs3tranformed%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+X.NA1 <- Xobs1tranformed%*%Beta+ matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
+X.NA2 <- Xobs2tranformed%*%Beta+ matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
+X.NA3 <- Xobs3tranformed%*%Beta + matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
 
 #Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
 
@@ -163,14 +173,13 @@ M3<-matrix(c(0,0,1), nrow=10*N, ncol=3, byrow=T)
 
 #FullM<-cbind( rbind( M1, M2, M3 ), matrix(0, nrow=3*10000, ncol=3)    )
 
-
-
 #length(ids.jack)
 #Results <- lapply(1:10, function(s){
 Results<-list()
 
 for (s in 1:10){
   set.seed(seeds[s])
+  
   
   
   
@@ -184,6 +193,7 @@ for (s in 1:10){
   
   colnames(X)<-NULL
   colnames(X)<-paste0("X",1:6)
+  n<-nrow(X)
   
   ################################## imputations #########################################
   ########################################################################################
@@ -226,9 +236,11 @@ for (s in 1:10){
       
       Ximp<-imputations[[method]][[j]]
       
-      
       colnames(Ximp)<-paste0("X",1:ncol(X))
-      escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )
+      escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )*(2*n)/(n^2)
+      #escore[method]<-
+      #  escore[method]+ 0.5*scoringRules:::esC_xx(t(Ximp), w=rep(1/nrow(Ximp),nrow(Ximp)))- owndistance(X,Ximp)
+      
       
     }
     escore[method] <- -1/m*escore[method]
@@ -251,19 +263,31 @@ for (s in 1:10){
 ## Analysis
 
 
+
+
 par(mfrow=c(1,1))
 energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$energy.score))
 energydata<-energydata[,!(colnames(energydata) %in% "sample")]
+energydata<-energydata[,!(colnames(energydata) %in% "mean")]
+energydata<-energydata[,!(colnames(energydata) %in% "mipca")]
+
+
+## Standardize
+## Analysis
+energydata<-energydata[,!(colnames(energydata) %in% "sample")]
+energydata<-(energydata - max(energydata))/abs(min(energydata)- max(energydata))
 meanvalsenergy<- colMeans(energydata)
-boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
+
+
+meanvalsenergy<- colMeans(energydata)
+boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5, col="white")
 
 
 
 
 
 
-
-filename ="Application_3_withGAINMIWAE"
+filename =paste0("Application_3_", paste0(methods, collapse="_"))
 
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))

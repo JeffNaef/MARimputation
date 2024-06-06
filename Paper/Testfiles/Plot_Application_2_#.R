@@ -116,16 +116,15 @@ seeds <- sample(c(0:2000),100,replace = FALSE)
 
 
 # Given the observed data build the data containing missing values
-Beta<-matrix(runif(n=9, min=-2, max=2), nrow=3,ncol=3)
+Beta<-matrix(runif(n=9, min=-2, max=2), nrow=3,ncol=2)
 
-N<-1000
+N<-500
 
 ## Build the observed data
 
 ## As done in the paper ##
- Xobs1<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
- Xobs2<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
- Xobs3<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+Xobs1<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+Xobs2<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
 
 
 # ##With fixed covariance matrix ##
@@ -150,15 +149,14 @@ N<-1000
 
 
 
-X.NA1 <- Xobs1%*%Beta + matrix( rnorm(n=3*10*N, sd=1), nrow=10*N, ncol= 3   )
-X.NA2 <- Xobs2%*%Beta + matrix( rnorm(n=3*10*N, sd=1), nrow=10*N, ncol= 3   )
-X.NA3 <- Xobs3%*%Beta + matrix( rnorm(n=3*10*N, sd=1), nrow=10*N, ncol= 3   )
+X.NA1 <- Xobs1%*%Beta + matrix( rnorm(n=2*10*N, sd=1), nrow=10*N, ncol= 2   )
+X.NA2 <- Xobs2%*%Beta + matrix( rnorm(n=2*10*N, sd=1), nrow=10*N, ncol= 2   )
+
 
 #Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
 
-M1<-matrix(c(1,0,0), nrow=10*N, ncol=3, byrow=T)
-M2<-matrix(c(0,1,0), nrow=10*N, ncol=3, byrow=T)
-M3<-matrix(c(0,0,1), nrow=10*N, ncol=3, byrow=T)
+M1<-matrix(c(1,0), nrow=10*N, ncol=2, byrow=T)
+M2<-matrix(c(0,1), nrow=10*N, ncol=2, byrow=T)
 
 #FullM<-cbind( rbind( M1, M2, M3 ), matrix(0, nrow=3*10000, ncol=3)    )
 
@@ -169,107 +167,105 @@ M3<-matrix(c(0,0,1), nrow=10*N, ncol=3, byrow=T)
 Results<-list()
 
 s<-1
+
+set.seed(seeds[s])
+
+
+
+X<-cbind( rbind( X.NA1[ (N*(s-1)+1):(N*s),], 
+                 X.NA2[ (N*(s-1)+1):(N*s),]), 
+          rbind(Xobs1[ (N*(s-1)+1):(N*s),], Xobs2[ (N*(s-1)+1):(N*s),])    )
+M<-cbind( rbind( M1[ (N*(s-1)+1):(N*s),], M2[ (N*(s-1)+1):(N*s),]), 
+          matrix(0, nrow=2*N, ncol=2)    )
+X.NA<-X
+X.NA[M==1] <- NA
+
+colnames(X)<-NULL
+colnames(X)<-paste0("X",1:5)
+
+################################## imputations #########################################
+########################################################################################
+
+## Add drf
+## Deactivate standardization for MIWAE here!!!!
+imputations <- doimputation(X.NA=X.NA, methods=methods, m=m)
+methods<-imputations$methods
+
+imputations <-imputations$imputations
+
+
+# imputationfuncs<-list()
+# for (method in methods){
+#   ##Probably not the smartes solution
+#   imputationfuncs[[method]][[1]] <- method
+#   imputationfuncs[[method]][[2]] <- function(X,m, method){ 
+#     doimputation(X.NA=X, methods=method, m=m,print=F, visitSequence="arabic", maxit = 1)}
+# }
+################################## evaluations #########################################
+########################################################################################
+
+#Step 1: Without access to true underlying data, check Iscore
+
+
+# start_time <- Sys.time()
+# new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf", imputationfuncs=imputationfuncs)
+# end_time <- Sys.time()
+# 
+# end_time-start_time
+# 
+# 
+# 
+# new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
+
+#Step 2: With access to the full data, check energy score:
+# So far only for m=1!!!
+
+
+
+escore<-rep(0, length(methods))
+names(escore)<-methods
+for (method in methods){
   
-  set.seed(seeds[s])
-  
-  
-  ###something is not right here!!! ####
-  
-  
-  X<-cbind( rbind( X.NA1[ (N*(s-1)+1):(N*s),], 
-                   X.NA2[ (N*(s-1)+1):(N*s),], X.NA3[ (N*(s-1)+1):(N*s),]), 
-            rbind(Xobs1[ (N*(s-1)+1):(N*s),], Xobs2[ (N*(s-1)+1):(N*s),], Xobs3[ (N*(s-1)+1):(N*s),])    )
-  M<-cbind( rbind( M1[ (N*(s-1)+1):(N*s),], M2[ (N*(s-1)+1):(N*s),], M3[ (N*(s-1)+1):(N*s),] ), 
-            matrix(0, nrow=3*N, ncol=3)    )
-  X.NA<-X
-  X.NA[M==1] <- NA
-  
-  colnames(X)<-NULL
-  colnames(X)<-paste0("X",1:6)
-  
-  ################################## imputations #########################################
-  ########################################################################################
-  
-  ## Add drf
-  ## Deactivate standardization for MIWAE here!!!!
-  imputations <- doimputation(X.NA=X.NA, methods=methods, m=m)
-  methods<-imputations$methods
-  
-  imputations <-imputations$imputations
-  
-  
-  # imputationfuncs<-list()
-  # for (method in methods){
-  #   ##Probably not the smartes solution
-  #   imputationfuncs[[method]][[1]] <- method
-  #   imputationfuncs[[method]][[2]] <- function(X,m, method){ 
-  #     doimputation(X.NA=X, methods=method, m=m,print=F, visitSequence="arabic", maxit = 1)}
-  # }
-  ################################## evaluations #########################################
-  ########################################################################################
-  
-  #Step 1: Without access to true underlying data, check Iscore
-  
-  
-  # start_time <- Sys.time()
-  # new.score.list.drf <- Iscores_new(X.NA,imputations,score="drf", imputationfuncs=imputationfuncs)
-  # end_time <- Sys.time()
-  # 
-  # end_time-start_time
-  # 
-  # 
-  # 
-  # new.score.drf <- unlist(lapply(new.score.list.drf, function(x) x$score))
-  
-  #Step 2: With access to the full data, check energy score:
-  # So far only for m=1!!!
-  
-  
-  
-  escore<-rep(0, length(methods))
-  names(escore)<-methods
-  for (method in methods){
+  for (j in 1:m){
     
-    for (j in 1:m){
-      
-      Ximp<-imputations[[method]][[j]]
-      
-      
-      colnames(Ximp)<-paste0("X",1:ncol(X))
-      escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )
-      
-    }
-    escore[method] <- -1/m*escore[method]
+    Ximp<-imputations[[method]][[j]]
+    
+    
+    colnames(Ximp)<-paste0("X",1:ncol(X))
+    escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )
+    
   }
-  
-  #print("drf-score2:")
-  #print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
-  print("e-score")
-  print( sort( round(escore/sum(escore),3) , decreasing=T)   )
-  
-  print(paste0("nrep ",s, " out of ", nrep.total ))
-  
-  Results[[s]] <- list(energy.score=escore)
-  
-  
-  #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
-  
-  
+  escore[method] <- -1/m*escore[method]
+}
+
+#print("drf-score2:")
+#print( sort( round( unlist(new.score.drf)/sum(unlist(new.score.drf)),3) , decreasing=T)   )
+print("e-score")
+print( sort( round(escore/sum(escore),3) , decreasing=T)   )
+
+print(paste0("nrep ",s, " out of ", nrep.total ))
+
+Results[[s]] <- list(energy.score=escore)
+
+
+#return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
+
+
 
 
 
 ## Analysis
-  
+
 sort(escore)  
 
 pattern <- c(rep(1,N), rep(2,N), rep(3,N))  
-par(mfrow=c(3,length(methods) + 2 ))
+par(mfrow=c(1,length(methods) + 2 ))
 
 #M1<-matrix(c(1:6), nrow=3,ncol=2, byrow = TRUE)
 #M2<-matrix(c(7:(3*length(methods))), nrow=3,ncol=length(methods)-2, byrow = FALSE)
 #layout(cbind(M1,M2))
 
-M<-matrix(c(1:(3*(2+length(methods)))), nrow=3,ncol=length(methods)+2, byrow = FALSE)
+M<-matrix(c(1:(1*(2+length(methods)))), nrow=1,ncol=length(methods)+2, byrow = FALSE)
 layout(M)
 
 
@@ -278,24 +274,19 @@ layout(M)
 
 
 for (method in c("truth", "observed", methods[order(escore, decreasing=T)])){
-
+  
   if (method=="truth"){
     plot(X[,1:2], col=pattern, main="truth")
-    plot(X[,2:3], col=pattern, main="truth")
-    plot(X[,c(1,3)], col=pattern,main="truth")
   }else if (method=="observed"){
     
     
     plot(X.NA[,1:2], col=pattern, main="observed")
-    plot(X.NA[,2:3], col=pattern, main="observed")
-    plot(X.NA[,c(1,3)], col=pattern, main="observed")
+
     
     
   }else{
-
-plot(imputations[[method]][[1]][,1:2], col=pattern, main=method, xlab="", ylab="")
-plot(imputations[[method]][[1]][,2:3], col=pattern, main=method, xlab="", ylab="")
-plot(imputations[[method]][[1]][,c(1,3)], col=pattern, main=method, xlab="", ylab="")
+    
+    plot(imputations[[method]][[1]][,1:2], col=pattern, main=method, xlab="", ylab="")
   }
 }
 

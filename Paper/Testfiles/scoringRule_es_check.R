@@ -10,20 +10,20 @@ S[S==0] <- 0.1
 
 # generate samples from multivariate normal distributions
 obs <- drop(mu0 + rnorm(d) %*% chol(S0))
-fc_sample <- replicate(m, drop(mu + rnorm(d) %*% chol(S)))
+fc_sample <- t(replicate(m, drop(mu + rnorm(d) %*% chol(S))))
 
 # compute Energy Score
-es_sample(y = obs, dat = fc_sample)
+es_sample(y = obs, dat = t(fc_sample))
 
 
 # First part
 # sqrt(colSums((fc_sample - matrix(obs, nrow=nrow(fc_sample), ncol=ncol(fc_sample), byrow = T))^2))
 
-(firstpart<-mean( sapply(1:m, function(j)  norm(fc_sample[,j, drop=F]- obs,type="F")    )  ))
+(firstpart<-mean( sapply(1:m, function(j)  norm(fc_sample[j,, drop=F]- obs,type="F")    )  ))
 
 ##same as 
 
-scoringRules:::esC_xy(obs, fc_sample, rep(1/m,m))
+scoringRules:::esC_xy(obs, t(fc_sample), rep(1/m,m))
 
 # Second part
 #secondpart<- mean( sapply(1:(m-1), function(j)  norm(fc_sample[,j+1, drop=F]- fc_sample[,j, drop=F],type="F")    ))
@@ -38,6 +38,9 @@ for (i in 1:m){
   }
   
 }
+
+
+
 w<-rep(1/m,m)
 
 secondpart<-w%*%D%*%w

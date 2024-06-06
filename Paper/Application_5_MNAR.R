@@ -37,7 +37,7 @@ library(missForest)
 print("missForest loaded")
 library(Iscores)
 print("IScores loaded")
-library(scoringRules)
+
 
 source("helpers.R")
 #source("Iscores_new.R")
@@ -47,8 +47,8 @@ source("helpers.R")
 #methods <- c("DRF", "cart","norm.predict", "missForest", "norm.nob")
 ## Add MIPCA:
 #methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "mipca")
+## Add mice-sample
 methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob")
-
 
 nrep.total<-10
 
@@ -75,46 +75,78 @@ seeds <- sample(c(0:2000),100,replace = FALSE)
 
 
 
-d<-3
-Beta<-diag(d)#matrix(1, nrow=d,ncol=d)
+# Given the observed data build the data containing missing values
+d<-6
+N<-1500
 
-
-N<-500
-
+# ## Build the observed data
+# Xobs1<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+# Xobs2<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+# Xobs3<- genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+# 
+# X.NA1 <- Xobs1%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+# X.NA2 <- Xobs2%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+# X.NA3 <- Xobs3%*%Beta + matrix( rnorm(n=3*10*N), nrow=10*N, ncol= 3   )
+# 
 C<-matrix(0, nrow=d, ncol=d)
-for (i in 1:3){
-  for (j in 1:3){
+for (t in 1:d){
+  for (s in 1:d){
     
     
-    C[i,j] <- 0.5^(abs(i-j))
+    C[t,s] <- 0.5^(abs(t-s))
     
   }
   
   
 }
 
-## Build the observed data
-Xobs1<- MASS::mvrnorm(n = 10*N, mu = rep(5, d), Sigma = C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs2<- MASS::mvrnorm(n = 10*N, mu = rep(-5, d), Sigma = C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs3<- MASS::mvrnorm(n = 10*N, mu = rep(0, d), Sigma = C)#genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
+Xstar<- MASS::mvrnorm(n = 10*N, mu = rep(5,d), Sigma = 2*C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=6)$train
 
-Xobs1tranformed<-t(apply(Xobs1,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
-Xobs2tranformed<-t(apply(Xobs2,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
-Xobs3tranformed<-t(apply(Xobs3,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]),x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
 
-# matrix(Xobs1, nrow=nrow(Xobs1), )
-X.NA1 <- Xobs1tranformed%*%Beta+ matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
-X.NA2 <- Xobs2tranformed%*%Beta+ matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
-X.NA3 <- Xobs3tranformed%*%Beta + matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
+## Add: 
+pM6<-1
+pM5<-1 #1/(1+exp(-( rowMeans(Xstar[,-5]) )))
+pM4<-1 #1/(1+exp(-( rowMeans(Xstar[,-4]) )))
+pM3<-1/(1+exp(-( rowMeans(Xstar[,-3])/4 )))
+pM2<-1/(1+exp(-( rowMeans(Xstar[,-2])/4 )))
+pM1<-1/(1+exp(-( rowMeans(Xstar[,-1])/4 )))
+
+U6<-runif(n=length(pM3))
+U5<-runif(n=length(pM2))
+U4<-runif(n=length(pM1))
+U3<-runif(n=length(pM3))
+U2<-runif(n=length(pM2))
+U1<-runif(n=length(pM1))
+
+Mfull<-matrix(0, nrow=nrow(Xstar), ncol=ncol(Xstar))
+
+
+case<-"MNAR"
+
+if (case=="MNAR"){
+
+## MNAR
+Mfull[,6]<-U6 < (1-pM6)
+Mfull[,5]<-U5 < (1-pM5)
+Mfull[,4]<-U4 < (1-pM4)
+Mfull[,3]<-U3 < (1-pM3)
+Mfull[,2]<-U2 < (1-pM2)
+Mfull[,1]<-U1 < (1-pM1)
+}else{
+## MCAR
+
+Mfull[,6]<-U6 < (1-pM6) #rep(mean(1-pM6), length(U6))
+Mfull[,5]<-U5 < (1-pM5) #rep(mean(1-pM5), length(U6))
+Mfull[,4]<-U4 < (1-pM4) #rep(mean(1-pM4), length(U6))
+Mfull[,3]<-U3 < rep(mean(1-pM3), length(U6))
+Mfull[,2]<-U2 < rep(mean(1-pM2), length(U6))
+Mfull[,1]<-U1 < rep(mean(1-pM1), length(U6))
 
 #Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
+}
 
-M1<-matrix(c(1,0,0), nrow=10*N, ncol=3, byrow=T)
-M2<-matrix(c(0,1,0), nrow=10*N, ncol=3, byrow=T)
-M3<-matrix(c(0,0,1), nrow=10*N, ncol=3, byrow=T)
+
+
 
 #FullM<-cbind( rbind( M1, M2, M3 ), matrix(0, nrow=3*10000, ncol=3)    )
 
@@ -129,11 +161,8 @@ for (s in 1:10){
   
   
   
-  X<-cbind( rbind( X.NA1[ (N*(s-1)+1):(N*s),], 
-                   X.NA2[ (N*(s-1)+1):(N*s),], X.NA3[ (N*(s-1)+1):(N*s),]), 
-            rbind(Xobs1[ (N*(s-1)+1):(N*s),], Xobs2[ (N*(s-1)+1):(N*s),], Xobs3[ (N*(s-1)+1):(N*s),])    )
-  M<-cbind( rbind( M1[ (N*(s-1)+1):(N*s),], M2[ (N*(s-1)+1):(N*s),], M3[ (N*(s-1)+1):(N*s),] ), 
-            matrix(0, nrow=3*N, ncol=3)    )
+  X<-Xstar[(N*(s-1)+1):(N*s),]
+  M<-Mfull[(N*(s-1)+1):(N*s),]
   X.NA<-X
   X.NA[M==1] <- NA
   
@@ -181,15 +210,10 @@ for (s in 1:10){
   # end_time-start_time
   
   
-  # new.score.list.drf <- Iscores(imputations,
-  #                               methods,
-  #                               X.NA,
-  #                               num.proj=1, rescale=F, projection.function = function(X){1:ncol(X)})
-  
-   new.score.list.drf <- Iscores(imputations,
-                                 methods,
-                                 X.NA,
-                                 num.proj=10, rescale=F, projection.function = NULL)
+  new.score.list.drf <- Iscores(imputations,
+                                methods,
+                                X.NA,
+                                num.proj=1, rescale=F, projection.function = function(X){1:ncol(X)})
   
   start_time <- Sys.time()
   new.score.list.imp <- Iscores_new(X.NA,imputations=imputations, imputationfuncs=imputationfuncs)
@@ -202,6 +226,7 @@ for (s in 1:10){
   names(DRIScore) <- colnames(new.score.list.drf)
   new.score.imp <- unlist(lapply(new.score.list.imp, function(x) x$score))
   
+
   #Step 2: With access to the full data, check energy score:
   # So far only for m=1!!!
   escore<-rep(0, length(methods))
@@ -249,7 +274,6 @@ for (s in 1:10){
   Results[[s]] <- list(new.score.imp = new.score.imp, DRIScore=DRIScore , energy.score=escore, ediff.score=ediff, RMSE=RMSE)
   
   
-  
   #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
   
   
@@ -289,15 +313,15 @@ abline(v=1:(ncol(scoredata)-1)+0.50,lty = 2)
 
 
 
-# 
+
 # ### Version 2 ####
 # ## Analysis
-# energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$energy.score))
+# energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$ediff.score))
 # energydata<-energydata[,!(colnames(energydata) %in% "sample")]
 # energydata<--(energydata - max(energydata))/min(energydata)
 # meanvalsenergy<- colMeans(energydata)
 # ## Setup
-# boxplot(energydata[,order(meanvalsenergy)], boxfill = NA, border = NA, ylim=c(-1,0),cex.axis=1.5,cex.lab=1.5) #invisible boxes - only axes and plot areas
+# boxplot(energydata[,order(meanvalsenergy)], boxfill = NA, border = NA, ylim=c(-0.6,0),cex.axis=1.5,cex.lab=1.5) #invisible boxes - only axes and plot areas
 # ##
 # 
 # scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$RMSE)))
@@ -322,11 +346,11 @@ abline(v=1:(ncol(scoredata)-1)+0.50,lty = 2)
 
 
 
- filename ="Application_3_withsample_O"
- 
- assign(filename, Results)
- save(Results, file=paste(filename, ".Rda",sep=""))
-# 
+filename ="Application_5_withsample_O"
+
+assign(filename, Results)
+save(Results, file=paste(filename, ".Rda",sep=""))
+
 
 
 

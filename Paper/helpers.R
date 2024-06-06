@@ -1,16 +1,5 @@
-
-
-
-###Notes to be deleted
-###- Implemented a new sampling for DRF, with sometimes weird results, need to check this
-###- The args argument when blocksize is specified does not work at all, need to check this!
-
-
-Iscores_new<-function(X, imputations, num.trees = 1000, min.node.size=5, score="drf", imputationfuncs=NULL, maxlength=NULL, projections=FALSE,...){
-
-  require(drf)
-  require(grf)
-  require(kernlab)
+Iscores_new<-function(X, N=50,imputationfuncs, imputations=NULL, maxlength=NULL,...){
+  
   require(Matrix)
   require(scoringRules)
   
@@ -23,34 +12,30 @@ Iscores_new<-function(X, imputations, num.trees = 1000, min.node.size=5, score="
   # imputations$nameofmethod being the imputation method
   # imputations$nameofmethod[[j]] being the jth imputation out of m, of imputation nameofmethod
   
-  methods<-names(imputations)
+  methods<-names(imputationfuncs)
   
   m<-length(imputations[[1]])
   score_all<-list()
   
   for (method in methods) {
     print(paste0("Evaluating method ", method))
-   
     
-    if (score=="drf"){
-    ##Reinstate!! Or make even better
-    # tmp<-rep(NaN, m)
-    # ##Calculate score for method j
-    # for (j in 1:m){
-    # tmp[j]<-Iscores_new_perimp(X, imputations[[method]][[j]], num.trees = num.trees, min.node.size=min.node.size,score=score)
-    #  
-    # }
-    
-    
-    tmp<-Iscores_new_perimp(X, imputations[[method]][[1]], num.trees = num.trees, min.node.size=min.node.size,score=score, maxlength=maxlength, projections=projections,...)
-    score_all[[method]] <- tmp  
-    }else{
+
+      # }
+      if (is.null(imputations)){
+        # If there is no prior imputation
+        tmp<-Iscores_new_perimp(X, Ximp=NULL, N=N, imputationfunc=imputationfuncs[[method]], maxlength=maxlength,...)
+        score_all[[method]] <- tmp  
       
+        
+      }else{
+        
+        tmp<-Iscores_new_perimp(X, Ximp=imputations[[method]][[1]], N=N, imputationfunc=imputationfuncs[[method]], maxlength=maxlength, ...)
+        score_all[[method]] <- tmp  
+        
+      }
       
-      tmp<-Iscores_new_perimp(X, imputations[[method]][[1]], num.trees = num.trees, min.node.size=min.node.size,score=score, imputationfuncs[[method]], maxlength=maxlength, projections=projections, ...)
-      score_all[[method]] <- tmp  
-      
-    }
+
     
   }
   
@@ -59,302 +44,168 @@ Iscores_new<-function(X, imputations, num.trees = 1000, min.node.size=5, score="
 }
 
 
-Iscores_new_perimp <- function(X, Ximp, num.trees = 1000, min.node.size=5, score="drf", imputationfunc=NULL, maxlength=NULL, projections=FALSE,...){
-
-colnames(X) <- colnames(Ximp) <- paste0("X", 1:ncol(X))
-
-args<-list(...)
-
-X<-as.matrix(X)
-Ximp<-as.matrix(Ximp)
-
-n<-nrow(X)
-p<-ncol(X)
-
-##Step 1: Reoder the data according to the number of missing values
-## (least missing first)
-numberofmissingbyj<-sapply(1:p, function(j)  sum(is.na(X[,j]))  )
- #X0<-X
- #Ximp0<-Ximp
- #X<-X[,order(numberofmissingbyj, decreasing=T)]
- #Ximp<-Ximp[,order(numberofmissingbyj, decreasing=T)]
-
-
-## Done in the function
-M<-1*is.na(X)
-colnames(M) <- colnames(X)
-
-
-if (score=="mulitpleimp" | score=="drf"){
-###This is what the current theory needs:
-if (any(colSums(M)==0)){
-
-  indexfull<-colnames(X)[colSums(M)==0]
-
-}else{
-
+Iscores_new_perimp <- function(X,imputationfunc, Ximp, N=50, maxlength=NULL,...){
+  
+  if (is.null(Ximp)){
+    # Impute, maxit should not be 1 here!
+    Ximp<-imputationfunc[[2]](X=X  , m=1, method= imputationfunc[[1]])[[1]]
+  }
+  
+  
+  colnames(X) <- colnames(Ximp) <- paste0("X", 1:ncol(X))
+  
+  args<-list(...)
+  
+  X<-as.matrix(X)
+  Ximp<-as.matrix(Ximp)
+  
+  n<-nrow(X)
+  p<-ncol(X)
+  
+  ##Step 1: Reoder the data according to the number of missing values
+  ## (least missing first)
+  numberofmissingbyj<-sapply(1:p, function(j)  sum(is.na(X[,j]))  )
+  #X0<-X
+  #Ximp0<-Ximp
+  #X<-X[,order(numberofmissingbyj, decreasing=T)]
+  #Ximp<-Ximp[,order(numberofmissingbyj, decreasing=T)]
+  
+  
+  ## Done in the function
+  M<-1*is.na(X)
+  colnames(M) <- colnames(X)
+  
   indexfull<-colnames(X)
-  score <- paste0(score,2)
-  warning("No fully observed variable, using ad-hoc solution")
-
-}
-}else{
-indexfull<-colnames(X)
-}
-
-# Order first according to most missing values
-
-# Get dimensions with missing values (all other are not important)
-dimwithNA<-(colSums(M) > 0)
-dimwithNA <- dimwithNA[order(numberofmissingbyj, decreasing=T)]
-dimwithNA<-dimwithNA[dimwithNA==TRUE]
-
-if (is.null(maxlength)){maxlength<-sum(dimwithNA) }
-
-if (sum(dimwithNA) < maxlength){
-  warning("maxlength was set smaller than sum(dimwithNA)")
-  maxlength<-sum(dimwithNA)
-}
-
-
-index<-1:ncol(X)
-scorej<-matrix(NA, nrow= min(sum(dimwithNA), maxlength), ncol=1)
-weight<-matrix(NA, nrow= min(sum(dimwithNA), maxlength), ncol=1)
-i<-0
-
-for (j in names(dimwithNA)[1:maxlength]){
   
-  i<-i+1
   
-  ## TO DO: 
-  ##- Need to do something about class-imbalance!
-  ##- Need to weigh the resulting score according to number of obs!
+  # Order first according to most missing values
   
-  print( paste0("Dimension ", i, " out of ", maxlength )   ) 
-
-      
-    require(drf)
+  # Get dimensions with missing values (all other are not important)
+  dimwithNA<-(colSums(M) > 0)
+  dimwithNA <- dimwithNA[order(numberofmissingbyj, decreasing=T)]
+  dimwithNA<-dimwithNA[dimwithNA==TRUE]
+  
+  if (is.null(maxlength)){maxlength<-sum(dimwithNA) }
+  
+  if (sum(dimwithNA) < maxlength){
+    warning("maxlength was set smaller than sum(dimwithNA)")
+    maxlength<-sum(dimwithNA)
+  }
+  
+  
+  index<-1:ncol(X)
+  scorej<-matrix(NA, nrow= min(sum(dimwithNA), maxlength), ncol=1)
+  weight<-matrix(NA, nrow= min(sum(dimwithNA), maxlength), ncol=1)
+  i<-0
+  
+  for (j in names(dimwithNA)[1:maxlength]){
     
+    i<-i+1
+    
+    ## TO DO: 
+    ##- Need to do something about class-imbalance!
+    ##- Need to weigh the resulting score according to number of obs!
+    
+    print( paste0("Dimension ", i, " out of ", maxlength )   ) 
+    
+    
+    
+    # H for all missing values of X_j
     Ximp1<-Ximp[M[,j]==1, ]
+    
+    # H for all observed values of X_j
     Ximp0<-Ximp[M[,j]==0, ]
-      
+    
+    X0 <-X[M[,j]==0, ]
+    
     n1<-nrow(Ximp1)
     n0<-nrow(Ximp0)
-      
     
-    if (n1 < 200){
+    
+    if (n1 < 10){
       scorej[i]<-NA
       
       warning('Sample size of missing and nonmissing too small for nonparametric distributional regression, setting to NA')
       
     }else{
       
-      if (score=="drf"){
-        
-        
-        
-        # Problem with Categorical variables!!
-        
-        # Train DRF on imputed data
-        Xtrain<-Ximp1[,!(colnames(Ximp1) %in% j) & (colnames(Ximp1) %in% indexfull), drop=F]
-        Ytrain<-Ximp1[,j, drop=F]
-        
-        # Evaluate on observed data
-        Xtest <- Ximp0[,!(colnames(Ximp0) %in% j) &  (colnames(Ximp0) %in% indexfull), drop=F]
-        Ytest <-Ximp0[,j, drop=F]
-        
-        
-        
-        if (all(Ytest %in% 0:1)){
-          
-          if (!all(Ytrain %in% 0:1)){
-            
-            warning("Imputation Method should impute with binary variables, but has numerical values => Imputation Method should not be used at all. Using quickfix for now")
-            
-            Ytrain<-(Ytrain > 0.5 )
-            
-          }
-          
-          
-          fit <- probability_forest(X=Xtrain,
-                                    Y=as.factor(Ytrain), num.trees = 2000, min.node.size = 5)
-          
-          Fhat <- predict(fit, newdata=Xtest  )$predictions
-          
-          
-          scorej[i] <- -mean(sapply(1:nrow(Ytest), function(j)  { crps_sample(y = Ytest[j,], dat = sample(c(0,1), size=2000, replace=T, prob=c(Fhat[j,1],Fhat[j,2]) ) ) }))
-          
-        }else{
-          
-          #####Fit DRF##########
-          fit <- drf(X=Xtrain,
-                     Y=Ytrain,  splitting.rule = "FourierMMD", num.trees = 2000, num.features=20, min.node.size = 15, honesty=F)
-          
-          
-          # Predict on the test data
-          Fhat <- predict(fit, newdata=Xtest  )$weights
-          scorej[i] <- -mean(sapply(1:nrow(Ytest), function(j)  { crps_sample(y = Ytest[j,], dat = c(Ytrain), w=Fhat[j,]) }))
-          #####Fit DRF##########
-        }
-        
-
-      }else if (score=="drf2"){
-        
-        # generate h(x_{-j})
-        HXmj<-imputationfunc[[2]](X=X[,!(colnames(Ximp1) %in% j) & (colnames(Ximp1) %in% indexfull), drop=F]  , m=1, method= imputationfunc[[1]])$imputations[[1]][[1]]
-        
-        HXmj1<-HXmj[M[,j]==1, ]
-        HXmj0<-HXmj[M[,j]==0, ]
-        
-        
-        
-        # Train DRF on imputed data
-        Xtrain<-HXmj1
-        Ytrain<-Ximp1[,j, drop=F]
-        
-        # Evaluate on observed data
-        Xtest <- HXmj0
-        Ytest <-Ximp0[,j, drop=F]
-        
-        
-        if (all(Ytest %in% 0:1)){
-          
-          if (!all(Ytrain %in% 0:1)){
-            
-            warning("Imputation Method should impute with binary variables, but has numerical values => Imputation Method should not be used at all. Using quickfix for now")
-            
-            Ytrain<-(Ytrain > 0.5 )
-            
-          }
-          
-          
-          fit <- probability_forest(X=Xtrain,
-                                    Y=as.factor(Ytrain), num.trees = 2000, min.node.size = 5)
-          
-          Fhat <- predict(fit, newdata=Xtest  )$predictions
-          
-          
-          scorej[i] <- -mean(sapply(1:nrow(Ytest), function(j)  { crps_sample(y = Ytest[j,], dat = sample(c(0,1), size=2000, replace=T, prob=c(Fhat[j,1],Fhat[j,2]) ) ) }))
-          
-        }else{
-          
-          #####Fit DRF##########
-          fit <- drf(X=Xtrain,
-                     Y=Ytrain,  splitting.rule = "FourierMMD", num.trees = 2000, num.features=20, min.node.size = 15, honesty=F)
-          
-          
-          # Predict on the test data
-          Fhat <- predict(fit, newdata=Xtest  )$weights
-          scorej[i] <- -mean(sapply(1:nrow(Ytest), function(j)  { crps_sample(y = Ytest[j,], dat = c(Ytrain), w=Fhat[j,]) }))
-          #####Fit DRF##########
-        }
-        
-      }else if (score=="mulitpleimp"){
-
-        #Ximp1<-Ximp[M[,j]==1, ]
-        #Ximp0<-Ximp[M[,j]==0, ]
-        # Problem with Categorical variables!!
-        
-        # Train DRF on imputed data
-        Xtrain<-Ximp1[,!(colnames(Ximp1) %in% j) & (colnames(Ximp1) %in% indexfull), drop=F]
-        Ytrain<-Ximp1[,j, drop=F]
-        
-        # Evaluate on observed data
-        Xtest <- Ximp0[,!(colnames(Ximp0) %in% j) &  (colnames(Ximp0) %in% indexfull), drop=F]
-        Ytest <-Ximp0[,j, drop=F]
-        
-        Xartificial<-cbind(c(rep(NA,nrow(Ytest)),c(Ytrain)),rbind(Xtest, Xtrain)   )
-        colnames(Xartificial)<-c(colnames(Ytrain), colnames(Xtrain))
-        
-        m<-100
-        ##reverse the ordering of the mice imputation here!!! Will likely make it much faster, as 
-        ##we always have all columns fully observed except the ones we want to impute by construction
-        ## This is weird it shouldn't take that long!
-        Imputationlist<-imputationfunc[[2]](X=Xartificial  , m=m, method= imputationfunc[[1]])
-        
-        Ymatrix<-do.call(cbind, lapply(Imputationlist$imputations[[1]], function(x)  x[1:nrow(Ytest),1]  ))
-        
-        scorej[i] <- -mean(sapply(1:nrow(Ytest), function(j)  { crps_sample(y = Ytest[j,], dat = Ymatrix[j,]) }))
-        
       
-      }else if (score=="mulitpleimp2"){
-        
-        # Step 1: Impute using all except variable j!
-        
-        # Problem with Categorical variables!!
-        
-        
-        if (projections==T){
-          
-          if (!("projectionsize" %in% names(args) )){
-            projectionsize <- sample(c(1:ncol(X.NA)), 1)
-          }else{
-          projectionsize <- args$projectionsize
-          }
-          
-          A<-sample( indexfull[!(colnames(Ximp1) %in% j)], projectionsize  )
-          
-        }else{
-          
-          A <- indexfull 
-        }
-        
-        
-        
-        
-        
-        # generate h(x_{-j})
-        HXmj<-imputationfunc[[2]](X=X[,!(colnames(Ximp1) %in% j) & (colnames(Ximp1) %in% A), drop=F]  , m=1, method= imputationfunc[[1]])$imputations[[1]][[1]]
-        
-        HXmj1<-HXmj[M[,j]==1, ]
-        HXmj0<-HXmj[M[,j]==0, ]
-        
-        
-        
-        # Train DRF on imputed data
-        Xtrain<-HXmj1
-        Ytrain<-Ximp1[,j, drop=F]
-        
-        # Evaluate on observed data
-        Xtest <- HXmj0
-        Ytest <-Ximp0[,j, drop=F]
-        
-        Xartificial<-cbind(c(rep(NA,nrow(Ytest)),c(Ytrain)),rbind(Xtest, Xtrain)   )
-        colnames(Xartificial)<-c(colnames(Ytrain), colnames(Xtrain))
-        
-        m<-100
-        ##reverse the ordering of the mice imputation here!!! Will likely make it much faster, as 
-        ##we always have all columns fully observed except the ones we want to impute by construction
-        ## This is weird it shouldn't take that long!
-        Imputationlist<-imputationfunc[[2]](X=Xartificial  , m=m, method= imputationfunc[[1]])
-        
-        Ymatrix<-do.call(cbind, lapply(Imputationlist$imputations[[1]], function(x)  x[1:nrow(Ytest),1]  ))
-        
-        scorej[i] <- -mean(sapply(1:nrow(Ytest), function(j)  { crps_sample(y = Ytest[j,], dat = Ymatrix[j,]) }))
-        
+      # Evaluate on observed data
+      Xtest <- Ximp0[,!(colnames(Ximp0) %in% j) &  (colnames(Ximp0) %in% indexfull), drop=F]
+      Oj<-apply(X0[,!(colnames(Ximp0) %in% j) &  (colnames(Ximp0) %in% indexfull), drop=F],2,function(x) !any(is.na(x)) )
+      # Only take those that are fully observed
+      Xtest<-Xtest[,Oj, drop=F]
+      
+      Ytest <-Ximp0[,j, drop=F]
+      
+      if (is.null(Xtest)){
+        scorej[i]<-NA
+        #weighted
+        weight[i]<-(n1/n)*(n0/n)
+        warning("Oj was empty")
+        next
       }
-    }
-  
+      
+      ###Test 1:
+      # Train DRF on imputed data
+      Xtrain<-Ximp1[,!(colnames(Ximp1) %in% j) & (colnames(Ximp1) %in% indexfull), drop=F]
+      # Only take those that are fully observed
+      Xtrain<-Xtrain[,Oj, drop=F]
+
+      Ytrain<-Ximp1[,j, drop=F]
+      ###Test 1
+      ###Test 2
+      # Xtestall<-Xtest[sample(1:nrow(Xtest)), , drop=F]
+      # Xtrain<-Xtestall[1:round(nrow(Xtest)*0.75), , drop=F]
+      # Xtest<-Xtest[(round(nrow(Xtest)*0.75)+1):nrow(Xtestall), , drop=F]
+      # Ytestall<-Ytest
+      # Ytest <- Ytestall[1:round(nrow(Xtest)*0.75), , drop=F]
+      # Ytrain <- Ytestall[(round(nrow(Xtest)*0.75)+1):nrow(Xtestall), , drop=F]
+      ###Test 2
     
+      
+      Xartificial<-cbind(c(rep(NA,nrow(Ytest)),c(Ytrain)),rbind(Xtest, Xtrain)   )
+      colnames(Xartificial)<-c(colnames(Ytrain), colnames(Xtrain))
+      
+      Imputationlist<-imputationfunc[[2]](X=Xartificial  , m=N, method= imputationfunc[[1]])$imputations
+      
+      Ymatrix<-do.call(cbind, lapply(Imputationlist[[1]], function(x)  x[1:nrow(Ytest),1]  ))
+      
+      scorej[i] <- -mean(sapply(1:nrow(Ytest), function(l)  { crps_sample(y = Ytest[l,], dat = Ymatrix[l,]) }))
+      
+    }
+    
+    
+    
+    #weighted
+    weight[i]<-(n1/n)*(n0/n)
+    
+  }
+  
+  scorelist<-c(scorej)
+  names(scorelist) <- names(dimwithNA)[1:maxlength]
+  weightlist<-c(weight)
+  names(weightlist) <- names(dimwithNA)[1:maxlength]
+  
+  weightedscore<-scorej*weight/(sum(weight, na.rm=T))
+  
+  ## Weight the score according to n0/n * n1/n!!
+  return( list(score= sum(weightedscore, na.rm=T), scorelist=scorelist, weightlist=weightlist)  )
+}
 
-  #weighted
-  weight[i]<-(n1/n)*(n0/n)
+
+owndistance <- function(X,Y){
+  # Calculates and estimate of \E[||X-Y ||]
+  
+  require(proxy)
+  #D <- as.matrix(dist(t(X), t(Y)))
+  D <- as.matrix(dist(X, Y))
+  
+  w<-rep(1/nrow(D),nrow(D))
+  
+  return(w%*%D%*%w)
   
 }
-
-scorelist<-c(scorej)
-names(scorelist) <- names(dimwithNA)[1:maxlength]
-weightlist<-c(weight)
-names(weightlist) <- names(dimwithNA)[1:maxlength]
-
-weightedscore<-scorej*weight/(sum(weight, na.rm=T))
-
-## Weight the score according to n0/n * n1/n!!
-return( list(score= sum(weightedscore, na.rm=T), scorelist=scorelist, weightlist=weightlist)  )
-}
-
-
-
 
 
 
@@ -396,7 +247,7 @@ blockmiceDRF<-function(data, blocksize=1, blocklist=NULL,num.trees=10, num.featu
   listindex<-lapply(blocklist, function(x) any(is.na(data[,x]))  )
   blocklist <- blocklist[ do.call(rbind,listindex)]
   
-  return(mymice(data, method="drffuncmult", num.trees=num.trees, num.features=num.features, min.node.size=min.node.size, m=m, blocks = blocklist, robust=robust, remove.collinear=F, ... ))
+  return(mymice(data, method="drffuncmult", num.trees=num.trees, num.features=num.features, min.node.size=min.node.size, m=m, blocks = blocklist, robust=robust, ... ))
   
 # ### This needs to be improved!
 #   if (blocksize > 1){
@@ -494,14 +345,13 @@ mice.impute.drffuncmult<- function(data, type=NULL, min.node.size=5, robust=F, n
 
 
 
-mice.impute.drffuncuniv<- function (y, ry, x, wy = NULL, minbucket = 5, cp = 1e-04,min.node.size=5, robust=F , ...)
+mice.impute.drffuncuniv<- function (y, ry, x, wy = NULL,min.node.size=1, num.features=10,  num.trees=10 , ...)
 {
   #install.on.demand("drf", ...)
   require(drf)
   if (is.null(wy)) {
     wy <- !ry
   }
-  minbucket <- max(1, minbucket)
   if (dim(x)[2] == 0) {
     x <- cbind(x, 1)
     dimnames(x) <- list(NULL, "int")
@@ -509,89 +359,24 @@ mice.impute.drffuncuniv<- function (y, ry, x, wy = NULL, minbucket = 5, cp = 1e-
   xobs <- x[ry, , drop = FALSE]
   xmis <- x[wy, , drop = FALSE]
   yobs <- as.matrix(y[ry])
-
-  args<-list(...)
-
-  if ("num.trees" %in% names(args)){
-    num.trees<-args$num.trees
-  }else{
-    num.trees=10
-  }
-
-  if ("num.features" %in% names(args)){
-    num.features<-args$num.features
-  }else{
-    num.features=10
-  }
-
-
-  if (robust==T){
-    #xobs<-t(apply(xobs,1, function(x){x/sqrt(sum(x^2))}))
-    #xmis<-t(apply(xmis,1, function(x){x/sqrt(sum(x^2))}))
-
-    ## Linear Version
-    # linreg<-lm(yobs~ xobs )
-    # yobs<- yobs-cbind(rep(1,nrow(xobs)), xobs)%*%linreg$coefficients
-    # fit <- drf(Y=yobs, X=xobs,num.trees=num.trees, num.features=num.features, compute.oob.predictions = F, min.node.size=min.node.size)
-    # DRFw <- predict(fit, newdata=xmis)$weights # These are the nodes now
-    # impute0 <- vapply(1:nrow(xmis), function(s) yobs[sample(1:nrow(yobs), size=1, replace=T, prob=DRFw[s,]), ], numeric(1))  # sample one observation per xmis
-    # impute <- impute0 + cbind(rep(1,nrow(xmis)), xmis)%*%linreg$coefficients
-
-
-    ## RF Version
-    #RF<-drf(Y=yobs, X=xobs,num.trees=num.trees, num.features=num.features, compute.oob.predictions = F, min.node.size=5, splitting.rule="CART")
-    RF<-drf(Y=yobs, X=xobs,num.trees=num.trees, compute.oob.predictions = F, min.node.size=1, splitting.rule="CART")
-    meanpred<-predict(RF, newdata=NULL, functional="mean")$mean
-    yobs<- yobs-meanpred
-    fit <- drf(Y=yobs, X=xobs,num.trees=num.trees, num.features=num.features, compute.oob.predictions = F, min.node.size=min.node.size)
-    DRFw <- predict(fit, newdata=xmis)$weights # These are the nodes now
-    impute0 <- vapply(1:nrow(xmis), function(s) yobs[sample(1:nrow(yobs), size=1, replace=T, prob=DRFw[s,]), ], numeric(1))  # sample one observation per xmis
-    impute <- impute0 + c(predict(RF, newdata=xmis, functional="mean")$mean)
-
-
-
-  }else{
-
-
-    fit <- drf(Y=yobs, X=xobs,num.trees=num.trees, num.features=num.features, compute.oob.predictions = F, min.node.size=min.node.size)
-    DRFw <- predict(fit, newdata=xmis)$weights # These are the nodes now
-    impute <- vapply(1:nrow(xmis), function(s) yobs[sample(1:nrow(yobs), size=1, replace=T, prob=DRFw[s,]), ], numeric(1))  # sample one observation per xmis
-
-
-
-  }
-
-
-  # if (!is.factor(yobs)) {
-  #   fit <- rpart::rpart(yobs ~ ., data = cbind(yobs, xobs),
-  #                       method = "anova", control = rpart::rpart.control(minbucket = minbucket,
-  #                                                                        cp = cp, ...))
-  #   leafnr <- floor(as.numeric(row.names(fit$frame[fit$where,
-  #   ])))
-  #   fit$frame$yval <- as.numeric(row.names(fit$frame))
-  #   nodes <- predict(object = fit, newdata = xmis)
-  #   donor <- lapply(nodes, function(s) yobs[leafnr == s])
-  #   impute <- vapply(seq_along(donor), function(s) sample(donor[[s]],
-  #                                                         1), numeric(1))
+  
+  # args<-list(...)
+  # if ("m" %in% names(args)){
+  #   m<-args$m
+  # }else{
+  #   m=1
   # }
-  #   cat.has.all.obs <- table(yobs) == sum(ry)
-  #   if (any(cat.has.all.obs)) {
-  #     return(rep(levels(yobs)[cat.has.all.obs], sum(wy)))
-  #   }
-  #   xy <- cbind(yobs, xobs)
-  #   xy <- droplevels(xy)
-  #   fit <- rpart::rpart(yobs ~ ., data = xy, method = "class",
-  #                       control = rpart::rpart.control(minbucket = minbucket,
-  #                                                      cp = cp, ...))
-  #   nodes <- predict(object = fit, newdata = xmis)
-  #   impute <- apply(nodes, MARGIN = 1, FUN = function(s) {
-  #     sample(colnames(nodes), size = 1, prob = s)
-  #   })
-  # }
+  m<-1
+  
+  fit <- drf(Y=yobs, X=xobs,num.trees=num.trees, num.features=num.features, compute.oob.predictions = F, min.node.size=min.node.size)
+  DRFw <- predict(fit, newdata=xmis)$weights # These are the nodes now
+  impute <- vapply(1:nrow(xmis), function(s) yobs[sample(1:nrow(yobs), size=1, replace=T, prob=DRFw[s,]), ], numeric(m))  # sample one observation per xmis
+  
+  
+  
+  
   impute
 }
-
-
 
 
 
@@ -726,7 +511,7 @@ genDataNoNA_synthetic <- function(n.train = 500,
     # lambda <- params$lambda
     # C<-params$C
     # L<-params$L
-    mu=runif(d*(d-1)/2, min=-5, max=5)#2*runif(d)-1
+    mu=runif(d, min=-5, max=5)#2*runif(d)-1
     lambda=rep(10,d) # For the Gaussian case, lambda is just ignored
     C=diag(d)
     ##Generate Lower triangular matrix
@@ -1147,14 +932,14 @@ doimputation <- function(X.NA, methods, m=m,...){
       #args<-list(...)
       #X<-args$X
       
-      ### TO DO here: Need to scale and then scale back!!
-      
+   
       X.NA<-as.matrix(X.NA)
       
       # Standardize without NAs
       X.NA.mean <- colMeans(X.NA, na.rm = T)
       X.NA.var<- apply(X.NA,2, function(x) var(x, na.rm=T))
       
+      ##NO standardization
       #X.NA.mean<-rep(0, ncol(X.NA))
       #X.NA.var<-rep(1, ncol(X.NA))
       
@@ -1189,7 +974,10 @@ doimputation <- function(X.NA, methods, m=m,...){
       imp <- tryCatch({
 
         # mice imputation
-        blub <- mice(X.NA, method = method, m = m, ...) # visitSequence="arabic"
+        ###The only reason to use mymice here is that mice does not
+        ###impute variables under multicollinarity, which is really frustrating
+        ###in the context of norm.predict. Thus I remove this annyoing feature manually
+        blub <- mymice(X.NA, method = method, m = m, ...) # visitSequence="arabic"
         mice::complete(blub, action="all")
 
       },error = function(e){
@@ -1604,8 +1392,6 @@ genData_real <- function(dataset= "dengue", n=NULL){
 }
 
 
-###Continue here adapting this and playing around!!!
-
 
 mymice <- function (data, m = 5, method = NULL, predictorMatrix, ignore = NULL, 
                     where = NULL, blocks, visitSequence = NULL, formulas, blots = NULL, 
@@ -1686,7 +1472,7 @@ mymice <- function (data, m = 5, method = NULL, predictorMatrix, ignore = NULL,
                              out = "")
   setup <- list(method = method, predictorMatrix = predictorMatrix, 
                 visitSequence = visitSequence, post = post)
-  setup <- mice:::edit.setup(data, setup, ...)
+  setup <- mice:::edit.setup(data, setup,remove.collinear = FALSE, ...)
   method <- setup$method
   predictorMatrix <- setup$predictorMatrix
   visitSequence <- setup$visitSequence
@@ -1696,9 +1482,15 @@ mymice <- function (data, m = 5, method = NULL, predictorMatrix, ignore = NULL,
                                method, nmis, data.init)
   from <- 1
   to <- from + maxit - 1
-  q <- mysampler(data, m, ignore, where, imp, blocks, method, 
+  if (any(method=="drffuncmult")){
+    q <- mysampler(data, m, ignore, where, imp, blocks, method, 
+            visitSequence, predictorMatrix, formulas, blots, post, 
+            c(from, to), printFlag, ...)
+  }else{
+  q <- mice:::sampler(data, m, ignore, where, imp, blocks, method, 
                  visitSequence, predictorMatrix, formulas, blots, post, 
                  c(from, to), printFlag, ...)
+  }
   if (!state$log) 
     loggedEvents <- NULL
   if (state$log) 

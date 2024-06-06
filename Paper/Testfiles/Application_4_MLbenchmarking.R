@@ -98,7 +98,8 @@ reticulate::source_python("gain.py") #there will be  warning but don't worry
 reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
 
 ## Add MIWAE here:
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN", "MIWAE")
+methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "sample", "GAIN", "MIWAE", "mipca", "mean")
+
 
 
 # data sets we use in the paper
@@ -250,9 +251,9 @@ boxplot(energydata[,order(meanvalsenergy)], cex.axis=1.5)
 
 
 
+filename =paste0("Application_4_", paste0(methods, collapse="_"))
 
-
-filename = "Application_4_withGAINMIWAE"
+#filename = "Application_4_withGAINMIWAE"
 assign(filename, Results)
 save(Results, file=paste(filename, ".Rda",sep=""))
 

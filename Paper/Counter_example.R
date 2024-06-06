@@ -123,7 +123,6 @@ impreg[1:nrow(X1m1),1]<-Ysample
 
 
 
-##Leave for the next paper!
 # engr = engression(X=X2m2,Y=X1m2,num_epochs = 100)
 # Ysample = predict(engr,X2m1,type="sample",nsample=1)
 # impeng<-X.NA
