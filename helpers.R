@@ -1,0 +1,1023 @@
+
+# Function to simulate from uniform margins with Gaussian copula
+gaussian_copula_uniform_sim <- function(n, d, correlation = NULL) {
+  # If correlation matrix not provided, create random positive definite correlation matrix
+  
+  C<-matrix(0, nrow=d, ncol=d)
+  for (t in 1:d){
+    for (s in 1:d){
+      
+      
+      C[t,s] <- 0.5^(abs(t-s))
+      
+    }
+    
+    
+  }
+  
+  
+  
+  # Generate multivariate normal data
+  mvn_data <- MASS::mvrnorm(n = n, 
+                            mu = rep(0, d), 
+                            Sigma = C)
+  
+  # Transform to uniform using probability integral transform
+  uniform_data <- pnorm(mvn_data)
+  
+  # Return both the uniform data and the correlation matrix used
+  return(list(
+    uniform_data = uniform_data,
+    correlation = correlation
+  ))
+}
+
+
+
+
+
+
+
+
+
+
+
+generateJackKifeIndices <- function(n = 100, n.rep = 6, n.groups = 2) {
+  l <- c(list(1:n),
+         unlist(lapply(1:n.rep,
+                       function(i)
+                       {ids <- cut(sample(1:n),
+                                   breaks = n.groups,
+                                   labels = FALSE);
+                       lapply(1:n.groups, function(j) which(ids!=j))}),
+                recursive = FALSE))
+  return(l)
+}
+
+genDataNoNA_synthetic <- function(n.train = 500,
+                                  n.test = 10000,
+                                  dataset = "bivariateGaussian",
+                                  patterns = matrix(c(NA,NA),nrow=1),
+                                  pattern_type = pattern_type,
+                                  d=2,
+                                  ...) {
+
+  if (nrow(patterns)<1) {
+    stop("patterns should contains at least one element.")
+  }
+
+  if (dataset == "bivariateGaussian") {
+
+    # description: bivariate Gaussian with a specific covariance matrix
+    d <- 2
+
+    # train set
+    train <- MASS::mvrnorm(n = n.train,
+                           mu = rep(0, d),
+                           Sigma = diag(0.3,d,d)+matrix(0.7,d,d)) # naive matrix example
+
+    # tests list
+    tests <- list()
+
+    # iterate over patterns
+    for (i in 1:nrow(patterns)) {
+
+      # unconditional
+      if (sum(is.na(patterns[i,]))==2) {
+
+        tests[[i]]  <- MASS::mvrnorm(n = n.test,
+                                     mu = rep(0, d),
+                                     Sigma = diag(0.3,d,d)+matrix(0.7,d,d)) # naive matrix example
+
+        # second missing
+      } else if (is.na(patterns[i,2])) {
+
+        tests[[i]] <- cbind(patterns[i,1], rnorm(n = n.test,
+                                                 mean = 0.7*patterns[i,1],
+                                                 sd = 1-0.7^2))
+
+        # first missing
+      } else if (is.na(patterns[i,1])) {
+
+        tests[[i]] <- cbind(rnorm(n = n.test,
+                                  mean = 0.7*patterns[i,2],
+                                  sd = 1-0.7^2), patterns[i,2])
+      } else {
+        stop("one at least should be NA.")
+      }
+    }
+
+    return(list(train = train,tests = tests, patterns=patterns))
+
+  } else if (dataset == "InverseSmiley") {
+    # description: inverse parabola in
+    d.alt <- d
+    d <- 2
+    sigma <- 0.5
+
+    # train
+    x <- rnorm(n.train)
+    train <- cbind(x, -5*x^2+ rnorm(n.train)*0.5)
+
+    # test list
+    tests <- list()
+
+    for (i in 1:nrow(patterns)) {
+
+      if (sum(is.na(patterns[i,]))==d.alt) {
+        x <- rnorm(n.test)
+        tests[[i]] <- cbind(x, -x^2+1 + rnorm(n.test)*sigma)
+
+      } else if (sum(is.na(patterns[i,]))==0) {
+        stop("should contain at least one missing value.")
+
+      } else  {
+        condition.on.ind <- which(!is.na(patterns[i,]))
+        condition.on.val <- patterns[i,condition.on.ind]
+        dimensions.to.fill <- setdiff(1:d,condition.on.ind)
+
+        n <- max(100000, n.test)
+        epsilon <- 0.05
+        x <- rnorm(n)
+        data.proposed <- cbind(x, -x^2+1 + rnorm(n)*sigma)
+
+        ids <- which(data.proposed[,condition.on.ind]<= condition.on.val + epsilon
+                     & data.proposed[,condition.on.ind] >= condition.on.val - epsilon)
+        if(length(ids)>=n.test){
+          ids <- ids[1:n.test]
+        }
+        data.proposed <- data.proposed[ids,]
+        data.proposed[,condition.on.ind] <- matrix(rep(condition.on.val,length(ids)), byrow=T,ncol=length(condition.on.val))
+        tests[[i]] <- data.proposed
+
+      }
+    }
+
+    if(d.alt >2){
+      train <- cbind(train, MASS::mvrnorm(n = n.train, mu = rep(0, d.alt-2), Sigma = diag(d.alt-2)))
+    }
+    return(list(train = train, tests = tests, patterns=patterns))
+
+  } else if (substr(dataset, start = 1, stop = 13)== "multivariateT" || dataset == "HGH" || dataset == "multivariateGaussian"){
+    # description: Jeff's HGH model, can be used in any dimensions
+
+
+    # params<-list(...)
+    # mu<- params$mu
+    # lambda <- params$lambda
+    # C<-params$C
+    # L<-params$L
+    mu=runif(d, min=-5, max=5)#2*runif(d)-1
+    lambda=rep(10,d) # For the Gaussian case, lambda is just ignored
+    C=diag(d)
+    ##Generate Lower triangular matrix
+    a <- 2*runif(d*(d-1)/2)-1
+    L <- diag(d)
+    i.upr <- which(lower.tri(L, diag = FALSE), arr.ind=TRUE)
+    L[i.upr] <- a
+
+
+    train <- matrix(NA, nrow=n.train, ncol=d)
+
+    for (j in 1:n.train){
+      if (dataset == "multivariateGaussian"){
+        G<-rep(1,d)
+        D <- diag(sqrt(G))
+      } else if (dataset == "HGH"){
+        G <- sapply(lambda,function(x) {rgamma(1,x, rate = 1)})
+        D <- diag(sqrt(G))
+      } else if (substr(dataset, start = 1, stop = 13)== "multivariateT"){
+        G<-rchisq(1, df=lambda)/lambda
+        D <- diag(sqrt(G)^(-1))
+      }
+      Z <- MASS::mvrnorm(n = 1, mu = rep(0, d), Sigma = C)
+      train[j,] <- mu + L%*%D%*%Z
+    }
+
+
+    tests <- list()
+
+    # iterate over patterns
+    for (i in 1:nrow(patterns)) {
+
+      # unconditional
+      if (sum(is.na(patterns[i,]))==d) {
+        test <- matrix(NA, nrow=n.test, ncol=d)
+        for (j in 1:n.test){
+          if (dataset == "multivariateGaussian"){
+            G<-rep(1,d)
+            D <- diag(sqrt(G))
+          } else if (dataset == "HGH"){
+            G <- sapply(lambda,function(x) {rgamma(1,x, rate = 1)})
+            D <- diag(sqrt(G))
+          } else if (substr(dataset, start = 1, stop = 13)== "multivariateT"){
+            G<- rchisq(1, df=lambda)/lambda
+            D <- diag(sqrt(G)^(-1))
+          }
+          Z <- MASS::mvrnorm(n = 1, mu = rep(0, d), Sigma = C)
+          test[j,] <- mu + L%*%D%*%Z
+        }
+        tests[[i]] <- test
+      }
+    }
+
+    return(list(train =train, tests= tests, patterns=patterns))
+
+  }else if (dataset == "spiral"){
+
+    if (!require(mlbench)) {
+      stop("mlbench should be installed.")
+    }
+    # description: Here we take examples directly from the mlbench package
+
+    train <- mlbench::mlbench.spirals(n.train, sd = 0.05)$x
+    if(d >2){
+      train <- cbind(train, MASS::mvrnorm(n = n.train, mu = rep(0, d-2), Sigma = diag(d-2)))
+    }
+
+    tests <- list()
+
+    # iterate over patterns
+    for (i in 1:nrow(patterns)) {
+
+      # unconditional
+      if (sum(is.na(patterns[i,]))==d) {
+        X <- mlbench.spirals(n.test,...)$x
+        if( d==2){
+          tests[[i]] <- X
+        } else{
+          tests[[i]] <- cbind(X, MASS::mvrnorm(n = n.test, mu = rep(0, d-2), Sigma = diag(d-2)))
+        }
+        # second missing
+      } else{
+
+        dimensions.to.fill <- which(is.na(patterns[i,]))
+        condition.on.ind <- which(!is.na(patterns[i,]))
+        condition.on.val <- patterns[i,condition.on.ind]
+
+        n <- 100000
+        epsilon <- rep(0.05, length(condition.on.ind))
+
+        X <- mlbench.spirals(n,...)$x
+        if( d==2){
+          data.proposed <- X
+        } else{
+          data.proposed <- cbind(X, MASS::mvrnorm(n = n, mu = rep(0, d-2), Sigma = diag(d-2)))
+        }
+
+        ids <- which(data.proposed[,condition.on.ind]<= condition.on.val + epsilon
+                     & data.proposed[,condition.on.ind] >= condition.on.val - epsilon)
+        if(length(ids)>=n.test) ids <- ids[1:n.test]
+
+        data.proposed <- data.proposed[ids,]
+        data.proposed[,condition.on.ind] <- matrix(rep(condition.on.val,length(ids)), byrow=T,ncol=length(condition.on.val))
+        tests[[i]] <- data.proposed
+      }
+    }
+
+  } else if(dataset =="swissroll"){
+
+    train <- swissroll(n.train)
+    if (d > 2){
+      train <- cbind(train, MASS::mvrnorm(n = n.train, mu = rep(0, d-2), Sigma = diag(d-2)))
+    }
+    tests <- c()
+    patterns <- patterns
+
+  }else if(dataset =="four.clouds"){
+
+    sigma <- 0.01
+    Sigma <- matrix(c(sigma, 0, 0, sigma), ncol=2)
+    mode1 <- mvrnorm(n.train/4, mu=c(1,0),Sigma = Sigma )
+    mode2 <- mvrnorm(n.train/4, mu=c(0,1),Sigma = Sigma )
+    mode3 <- mvrnorm(n.train/4, mu=c(-1,0),Sigma = Sigma )
+    mode4 <- mvrnorm(n.train/4, mu=c(0,-1),Sigma = Sigma )
+
+    train <- rbind(mode1,mode2,mode3,mode4)
+
+    if (d > 2){
+      train <- cbind(train, MASS::mvrnorm(n = n.train, mu = rep(0, d-2), Sigma = diag(d-2)))
+    }
+    tests <- c()
+    patterns <- patterns
+
+  }else{
+    train <-  eval(parse(text=paste0("mlbench.", dataset,"(", "n=", "n.train)$x")))
+
+    tests<-c()
+    patterns<-c()
+
+
+  }
+
+
+  return(list(train=train,tests=tests, patterns=patterns))
+
+
+}
+
+
+genMask_introexample_MAR <- function(X, pmiss=0.3){
+
+  X.NA <- matrix(NA, ncol=2, nrow=nrow(X))
+
+  X.NA[,1] <- sapply(1:nrow(X),function(ind){
+
+    ifelse(X[ind,2] > -0.3 & X[ind,2] < 0.3, rbinom(1, 1, prob=0.3), 0)
+
+  })
+
+  X.NA[,2] <- sapply(1:nrow(X),function(ind){
+
+    ifelse(X[ind,1] < -0.3 | X[ind,1] > 0.3, rbinom(1, 1, prob=0.3), 0)
+
+  })
+
+  X.NA.final <- X
+  X.NA.final[which(X.NA==1)]<-NA
+
+  return(X.NA.final)
+
+
+}
+
+genMask <- function(X, mech = "MCAR", pmiss = 0.5) {
+
+  create.patterns <- function(pmiss, d){
+    patterns <- c()
+    nar <- 0
+    while(nar != ceiling(d/2)){
+      nr.of.0 <- rbinom(prob=pmiss,n = 1, size=d)
+      if(nr.of.0 > ceiling(d/2)){
+        nr.of.0 <- d-nr.of.0
+      }
+
+      pat <- rep(1, d)
+      pat[sample(1:d, nr.of.0)]<-0
+      patterns <- rbind(patterns, pat)
+      patterns <- patterns[!duplicated(patterns), , drop=F]
+      nar <- ifelse(is.null(nrow(patterns)),0,nrow(patterns))
+
+    }
+
+    return(patterns)
+  }
+
+  n <- nrow(X)
+  d <- ncol(X)
+  # method = simple deletes any entry in the data matrix with probability pNA
+  if(mech == "MCAR"){
+    na <- apply(X,2,function(x) sample(c(0,1), size = length(x), prob = c(1-pmiss, pmiss), replace = TRUE))
+    # inds.total.na <- which(apply(na, 1, sum)==d)
+    X.NA <- X
+    X.NA[na==1] <- NA
+  }else if (mech %in% c("MAR", "MNAR")){
+
+    res <- NA
+    while(length(res)==1) {
+      #num.patterns <- 0
+      #while(num.patterns != ceiling(pmiss*d)){
+      patterns <- create.patterns(pmiss,d)
+      # num.patterns <- nrow(patterns)
+      #}
+
+      #patterns <- apply(X,2,function(x) sample(c(1,0), size = length(x), prob = c(1-pmiss, pmiss), replace = TRUE))
+      #patterns <- patterns[!duplicated(patterns), , drop=F]
+
+      freq <- rep(1/nrow(patterns), nrow(patterns))
+      cont <- TRUE
+      bycases <- FALSE
+      run <- TRUE
+
+      res <- tryCatch(ampute(X,
+                             prop = pmiss,
+                             patterns = patterns,
+                             freq = freq,
+                             mech = mech,
+                             cont = cont,
+                             bycases = bycases,
+                             run = run)$amp, error = function(x) NA)
+    }
+    X.NA <- res
+  }
+
+
+  return(X.NA)
+}
+
+doimputation <- function(X.NA, methods, m=m,...){
+
+  require(mice)
+  
+  counter<-0
+  imputations <- list()
+  methods0<-methods
+  
+  args<-list(...)
+
+  indexbinary<-apply(X.NA,2, function(x) all(x[!is.na(x)] %in% 0:1) )
+
+
+  for (method in methods0){
+    
+    
+    start_time <- Sys.time()
+    
+    counter<-which(methods==method)
+
+    ## MIPCA imputation
+    if (method=="mipca"){
+
+      imp <-tryCatch({
+        nbdim <- estim_ncpPCA(X.NA, ncp.min=1) # estimate the number of dimensions to impute
+        #imputations[[counter]] <-MIPCA(X.NA, ncp = nbdim$ncp, nboot = m)$res.MI
+        #names(imputations)[counter]<-method
+        MIPCA(X.NA, ncp = nbdim$ncp, nboot = m)$res.MI
+
+      },error = function(e){
+        warning(paste("Method", method, "could not be used for imputation"))
+        print(paste("Method", method, "could not be used for imputation"))
+        # Delete the method from the list
+        return(NA)
+      })
+      # ,
+      # warning=function(e) {
+      #   message(paste("Method", method, "could not be used for imputation (warnings)"))
+      #   message("Here's the original warning message:")
+      #   message(e)
+      #   return(NA)
+      # })
+
+      if(any(is.na(imp))){
+        methods <- methods[-which(methods==method)]
+      }else{
+        imputations[[method]] <- imp
+      }
+
+
+
+    } else if (method=="knn"){
+      
+      # Load DMwR package
+      require(DMwR2)
+      
+      # KNN imputation
+      imputations[[method]] <- knnImputation(X.NA)
+      
+    } else if (method=="amelia"){
+
+      imp <- tryCatch({
+        amelia(X.NA, m = m)$imputations
+
+      },error = function(e){
+        warning(paste("Method", method, "could not be used for imputation"))
+        print(paste("Method", method, "could not be used for imputation"))
+        # Delete the method from the list
+        return(NA)
+      })
+      # ,
+      # warning=function(e) {
+      #   message(paste("Method", method, "could not be used for imputation (warnings)"))
+      #   message("Here's the original warning message:")
+      #   message(e)
+      #   return(NA)
+      # })
+      #
+
+      if(any(is.na(imp))){
+        methods <- methods[-which(methods==method)]
+      }else{
+        imputations[[method]] <- imp
+      }
+
+
+
+    } else if (method=="missForest"){
+      
+      require(missForest)
+
+      imp <- tryCatch({
+
+        lapply(1:m,function(i) missForest(X.NA)$ximp)
+        #lapply(1:m,function(i) mymissForest(X.NA)$ximp)
+
+      },error = function(e){
+        warning(paste("Method", method, "could not be used for imputation"))
+        print(paste("Method", method, "could not be used for imputation"))
+        # Delete the method from the list
+        return(NA)
+      })
+      # ,
+      # warning=function(e) {
+      #   message(paste("Method", method, "could not be used for imputation (warnings)"))
+      #   message("Here's the original warning message:")
+      #   message(e)
+      #   return(NA)
+      # })
+
+
+      if(any(is.na(imp))){
+        methods <- methods[-which(methods==method)]
+      }else{
+        imputations[[method]] <- imp
+      }
+
+    }else if (method=="GAIN"){
+      
+      if (m > 1){
+        
+      stop("No Multiple imputation possible")
+      }
+      
+      X.NA<-as.matrix(X.NA)
+      
+      # GAIN standard parameters
+      gain_parameters =  list(
+        batch_size = 64L,
+        hint_rate = 0.9,
+        alpha = 10, 
+        iterations = 10000L
+      )
+      X_imputed<-NA
+      counter <- 0
+      while (any(is.na(X_imputed))& counter < 10){
+        counter<-counter +1 
+      X_imputed <- gain(X.NA, gain_parameters)
+      }
+      
+      if (any(is.na(X_imputed))){
+        imputations[[method]][[1]] <- NA
+      }else{
+      imputations[[method]][[1]] <- X_imputed
+      }
+    }else if (method=="MIWAE"){
+      
+      
+      if (m > 1){
+        
+        stop("No Multiple imputation possible")
+      }
+      
+      #args<-list(...)
+      #X<-args$X
+      
+   
+      X.NA<-as.matrix(X.NA)
+      
+      # Standardize without NAs
+      X.NA.mean <- colMeans(X.NA, na.rm = T)
+      X.NA.var<- apply(X.NA,2, function(x) var(x, na.rm=T))
+      
+      ##NO standardization
+      #X.NA.mean<-rep(0, ncol(X.NA))
+      #X.NA.var<-rep(1, ncol(X.NA))
+      
+      # zero imputation
+      X.zero = X.NA
+      X.zero[is.na(X.zero)] <- 0
+      X.zero.stand<-sapply(1:ncol(X.zero), function(j)  (X.zero[,j] -  X.NA.mean[j])/sqrt(X.NA.var[j])   )
+      mask <- is.finite(X.NA)
+    
+      
+      X_imputed.stand<-NA
+      counter <- 0
+      while (any(is.na(X_imputed.stand))& counter < 10){
+        counter<-counter +1 
+        #test = miwae(X.zero, X, mask)
+        imp = miwae(X.zero.stand, X.zero.stand, mask)
+        X_imputed.stand = imp[1][[1]]
+      }
+      X_imputed<-sapply(1:ncol(X.zero), function(j) X_imputed.stand[,j]*sqrt(X.NA.var[j]) +  X.NA.mean[j]    )
+      
+      
+      
+      if (any(is.na(X_imputed))){
+        imputations[[method]][[1]] <- NA
+      }else{
+        imputations[[method]][[1]] <- X_imputed
+      }
+      
+      
+      }else {
+
+      imp <- tryCatch({
+
+        # mice imputation
+        ###The only reason to use mymice here is that mice does not
+        ###impute variables under multicollinarity, which is really frustrating
+        ###in the context of norm.predict. Thus I remove this annyoing feature manually
+        blub <- mice(X.NA, method = method, m = m, ...) # visitSequence="arabic"
+        mice::complete(blub, action="all")
+
+      },error = function(e){
+        warning(paste("Method", method, "could not be used for imputation"))
+        print(paste("Method", method, "could not be used for imputation"))
+        # Delete the method from the list
+        return(NA)
+      })
+      # ,
+      # warning=function(e) {
+      #   message(paste("Method", method, "could not be used for imputation (warnings)"))
+      #   message("Here's the original warning message:")
+      #   message(e)
+      #   return(NA)
+      # })
+
+
+      if(any(is.na(imp[[1]]))){
+        methods <- methods[-which(methods==method)]
+      }else{
+        imputations[[method]] <- imp
+      }
+
+
+    }
+
+    end_time <- Sys.time()
+    
+   
+    
+    print(paste0("Method ", method, " needed ",  round(end_time-start_time,3), " to impute" ))
+    
+    
+  }
+
+
+  
+  return(list(imputations=imputations, methods=methods))
+
+
+}
+
+genData_real <- function(dataset= "dengue", n=NULL){
+
+
+  if (dataset == "dengue"){
+    # description: dengue fever in africa.
+    # https://www.picostat.com/dataset/r-dataset-package-daag-dengue
+    dat <- read.csv(file="dataset_dengue.csv")
+    X <- as.matrix(data.frame(na.omit(dat)))
+    colnames(X) <-NULL
+
+  }else if (dataset== "Boston"){
+    X <- as.matrix(Boston) ## For the moment: take out categorical variables
+    colnames(X) <- NULL
+
+  }else if (dataset == "network"){
+    nv <- vcount(fblog)
+    X <- as_adjacency_matrix(fblog)
+    colnames(X) <- NULL
+    rownames(X) <- NULL
+
+  }else if (dataset == "iris"){
+    X <- iris
+    X <- X[,-ncol(X)]
+    X <- as.matrix(X)
+    colnames(X) <- NULL
+
+    # X <- as.matrix(model.matrix(~., iris))
+    # X <- X[,-1]
+    # colnames(X) <- NULL
+
+  }else if (dataset == "wine"){
+
+    X <- read.csv(file="wine.data", header=F)
+    X <- as.matrix(X)
+    X <- X[,-1]
+    colnames(X) <- NULL
+
+    # data("wine")
+    # X <- wine
+    # X$Class <- NULL
+    # X <- as.matrix(X)
+    # colnames(X) <- NULL
+
+    # data("wine")
+    # wine$Class <- as.factor(wine$Class)
+    # X <- as.matrix(model.matrix(~., wine))
+    # X <- X[,-1]
+    # colnames(X) <- NULL
+
+  }else if(dataset == "wisconsin"){
+
+    dat <- read.csv(file="wisconsin.csv")
+    dat<-dat[,-c(1,2,33)]
+    X <- as.matrix(dat)
+    colnames(X) <-NULL
+
+    # dat <- read.csv(file="wisconsin.csv")
+    # dat$diagnosis<-as.factor(dat$diagnosis)
+    # dat<-dat[,c(-1,-33)]
+    # X <- as.matrix(model.matrix(~., dat))
+    # X<-X[,-1]
+    # colnames(X) <-NULL
+
+  }else if(dataset == "wine.quality.red"){ #https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/
+    dat <- read.csv(file="winequality-red.csv", sep=";")
+    dat$quality<-NULL
+    X <- as.matrix(dat)
+    colnames(X) <-NULL
+
+    # dat <- read.csv(file="winequality-red.csv", sep=";")
+    # dat$quality<-as.factor(dat$quality)
+    # X <- as.matrix(model.matrix(~., dat))
+    # X<-X[,-1]
+    # colnames(X) <-NULL
+
+  }else if(dataset == "wine.quality.white"){ #https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/
+    dat <- read.csv(file="winequality-white.csv", sep=";")
+    dat$quality<-NULL
+    X <- as.matrix(dat)
+    colnames(X) <- NULL
+
+    # dat <- read.csv(file="winequality-white.csv", sep=";")
+    # dat$quality<-as.factor(dat$quality)
+    # X <- as.matrix(model.matrix(~., dat))
+    # X<-X[,-1]
+    # colnames(X) <- NULL
+
+  }else if(dataset == "yacht"){ #https://archive.ics.uci.edu/ml/machine-learning-databases/00243/
+    X <- read.csv(file="yacht_hydrodynamics.data", sep="", header=F)
+    X <- as.matrix(X)
+    colnames(X) <-NULL
+
+  }else if(dataset == "yeast"){ #https://archive.ics.uci.edu/ml/machine-learning-databases/yeast/
+    X <- read.csv(file=paste0(getwd(), "/datasets/yeast.data"), sep="", header=F)
+    X <- X[,-c(1, ncol(X))]
+    X <- as.matrix(X)
+    colnames(X) <-NULL
+
+    # X <- read.csv(file="yeast.data", sep="", header=F)
+    # X <- X[,-1]
+    # X <- as.matrix(model.matrix(~., X))
+    # X<-X[,-1]
+    # colnames(X) <-NULL
+
+  }else if(dataset == "DNA"){
+    data("DNA")
+    dat <- DNA
+    X <- as.matrix(model.matrix(~., dat))
+    X<-X[,-1]
+    colnames(X) <-NULL
+
+  }else if(dataset == "airfoil"){
+    X <- read.table(file="airfoil_self_noise.dat")
+    colnames(X) <-NULL
+    X <-as.matrix(X)
+
+  }else if (dataset =="blood.transfusion"){
+    X <- read.csv(file="transfusion.data")
+    X<- X[,-ncol(X)]
+    X <- as.matrix(X)
+    colnames(X)<- NULL
+
+    # X <- read.csv(file="transfusion.data")
+    # X[, ncol(X)]<- as.factor(X[,ncol(X)])
+    # X <- model.matrix(~., X)
+    # X <- X[,-1]
+    # colnames(X)<- NULL
+
+  }else if (dataset == "concrete.slump"){
+    X <- read.csv(file="slump_test.data")
+    X <- as.matrix(X)
+    X <- X[,-1]
+    colnames(X)<- NULL
+
+  }else if (dataset == "connectionist.bench.sonar"){
+
+    X <- read.csv(file="sonar.all-data", header=F)
+    X <- X[,-ncol(X)]
+    X <- as.matrix(X)
+    colnames(X)<- NULL
+
+    # X <- read.csv(file="sonar.all-data", header=F)
+    # X.last <- as.factor(X[, ncol(X)])
+    # X <- apply(X[,1:(ncol(X)-1)], 2, as.numeric)
+    # X <- data.frame(X, X.last)
+    # X <- model.matrix(~., X)
+    # X <- X[,-1]
+    # colnames(X)<- NULL
+    #
+  }else if (dataset == "connectionist.bench.vowel"){
+    X <- read.csv(file="vowel-context.data", sep="", header=F)
+    X <- X[,-c(1,2,3, ncol(X))]
+    X <- as.matrix(X)
+    colnames(X)<- NULL
+
+    # X <- read.csv(file="vowel-context.data", sep="", header=F)
+    # inds.to.convert <- c(1,2,3, ncol(X))
+    # for ( i in inds.to.convert){
+    #   X[,i] <- as.factor(X[,i])
+    # }
+    # X <- model.matrix(~., X)
+    # X <- X[,-1]
+    # colnames(X)<- NULL
+
+  }else if (dataset == "ecoli"){
+    X <- read.csv(file="ecoli.data", sep="", header=F)
+    X <- X[,-c(1, ncol(X))]
+    X <- as.matrix(X)
+    X <- X[,-7]# hihgly cor with var8
+    X <- X[,-4]
+    colnames(X)<- NULL
+
+    # X <- read.csv(file="ecoli.data", sep="", header=F)
+    # X <- data.frame(X)
+    # X <- X[,-1]
+    # X[,ncol(X)] <- as.factor(X[,ncol(X)])
+    # X <- model.matrix(~., X)
+    # X <- X[,-1]
+    # colnames(X)<- NULL
+
+  }else if (dataset=="glass"){
+    X <- read.csv(file="glass.data",header=F)
+    X <- X[,-c(1, ncol(X))]
+    colnames(X)<- NULL
+
+    # X <- read.csv(file="glass.data",header=F)
+    # X <- X[,-1]
+    # X <- data.frame(X)
+    # X[,ncol(X)] <- as.factor(X[,ncol(X)])
+    # X <- model.matrix(~., X)
+    # X <- X[,-1]
+    # colnames(X)<- NULL
+
+  }else if (dataset=="ionosphere"){ #https://archive.ics.uci.edu/ml/machine-learning-databases/ionosphere/
+    X <- read.csv(file="ionosphere.data",header=F)
+    X <- X[,-c(1,2, ncol(X))]
+    X <- as.matrix(X)
+    colnames(X)<- NULL
+
+    # X <- read.csv(file="ionosphere.data",header=F)
+    # X <- X[,-2]
+    # X <- data.frame(X)
+    # X[,1] <- as.factor(X[,1])
+    # X[,ncol(X)] <- as.factor(X[,ncol(X)])
+    # X <- model.matrix(~., X)
+    # X <- X[,-1]
+    # colnames(X)<- NULL
+
+  }else if (dataset=="libras"){ #https://archive.ics.uci.edu/ml/machine-learning-databases/libras/
+    X <- read.csv(file="movement_libras.data", header=F)
+    X <- X[,-ncol(X)]
+    X <- as.matrix(X)
+    colnames(X)<- NULL
+
+    # X <- read.csv(file="movement_libras.data", header=F)
+    # X <- data.frame(X)
+    # X[,ncol(X)] <- as.factor(X[,ncol(X)])
+    # X <- model.matrix(~., X)
+    # X <- X[,-1]
+    # colnames(X)<- NULL
+    #
+  }else if (dataset=="parkinsons"){ #https://archive.ics.uci.edu/ml/machine-learning-databases/parkinsons/
+    X <- read.csv(file="parkinsons.data", header=T)
+    X$status <- NULL
+    X$name <- NULL
+    X <- as.matrix(X)
+    colnames(X)<- NULL
+
+    # X <- read.csv(file="parkinsons.data", header=T)
+    # X <- data.frame(X)
+    # X <- X[,-1]
+    # X$status <- as.factor(X$status)
+    # X <- model.matrix(~., X)
+    # X <- X[,-1]
+    # colnames(X)<- NULL
+
+  }else if (dataset=="planning.relax"){ #https://archive.ics.uci.edu/ml/machine-learning-databases/00230/
+    X <- read.csv("plrx.txt", sep="", header=F)
+    X <- X[,-ncol(X)]
+    X <- as.matrix(X)
+    colnames(X)<- NULL
+
+    # X <- read.csv("plrx.txt", sep="", header=F)
+    # X <- data.frame(X)
+    # X[, ncol(X)] <- as.factor(X[,ncol(X)])
+    # X <- model.matrix(~., X)
+    # X <- X[,-1]
+    # colnames(X)<- NULL
+    #
+  }else if (dataset=="seeds"){ #https://archive.ics.uci.edu/ml/machine-learning-databases/00236/
+    X <- read.csv("seeds_dataset.txt", sep="", header=F)
+    X <- X[,-ncol(X)]
+    X <- as.matrix(X)
+    colnames(X)<- NULL
+
+    # X <- read.csv("seeds_dataset.txt", sep="", header=F)
+    # X <- data.frame(X)
+    # X[, ncol(X)] <- as.factor(X[,ncol(X)])
+    # X <- model.matrix(~., X)
+    # X <- X[,-1]
+    # colnames(X)<- NULL
+
+  }else if (dataset=="climate.model.crashes"){
+    X <- read.table(file="pop_failures.dat", header = TRUE)
+    X <- X[,-c(1,ncol(X))]
+    X<-as.matrix(X)
+    colnames(X)<- NULL
+
+    # X <- read.table(file="pop_failures.dat", header = F)
+    # X <- as.data.frame(X)
+    # colnames(X) <- NULL
+    # X <- X[-1,]
+    # inds.to.convert <- setdiff(1:ncol(X),c(1, ncol(X)))
+    # blub <- lapply(inds.to.convert, function(i) if(is.factor(X[,i])) {
+    #   X[,i]<- droplevels(X[,i])
+    #   return(as.numeric(levels(X[,i]))[X[,i]])
+    #   }else X[,i])
+    # blub <- do.call(cbind, blub)
+    # blub <- data.frame(blub)
+    # blub <- cbind(blub, X[,1])
+    # blub <- cbind(blub, X[,ncol(X)])
+    # X <- model.matrix(~., blub)
+    # X <- X[,-1]
+    # colnames(X)<- NULL
+    #
+  }else if (dataset == "concrete.compression"){
+    X <- read_excel("Concrete_Data.xls")
+    X <- as.matrix(X)
+    colnames(X)<- NULL
+
+  }else if (dataset == "CASchools"){
+    data("CASchools")
+    X <- CASchools
+    X <- X[,-c(1,2,3,4)]
+    X <- as.matrix(X)
+    colnames(X) <- NULL
+
+
+  }else if (dataset=="real_wagedata") {
+    
+    #load("~/GitHub/DRFvarimporance/applications/wage_data/data/datasets/wage_benchmark.Rdata")
+    
+    load(paste0(getwd(), "/datasets/wage.Rdata"))
+    
+    index<-sample(1:nrow(X), size = n,replace = F)
+    
+    
+    X<-cbind(data$Y[index,],data$X[index,])
+    # X<-X[index,]
+    # Y<-Y[index,]
+    # 
+    # X<-cbind(X,Y[,"male"])
+    # colnames(X)[ncol(X)]<-"male"
+    # Y<-Y[,1, drop=F]
+    
+    
+    return(X)
+    
+    
+  } else if(dataset=="real_birthdata") {
+    
+    #load("~/GitHub/DRFvarimporance/applications/births_data/data/datasets/births_benchmark.Rdata")
+    load(paste0(getwd(), "/datasets/births.Rdata"))
+    #load("~/GitHub/DRFvarimporance/applications/births_data/data/datasets/births_benchmark2.Rdata")
+    
+    index<-sample(1:nrow(data$X), size = n,replace = F)
+    
+    X<-cbind(data$Y[index,],data$X[index,])
+    #Y<-Y[index,]
+    
+    return(X)
+    
+  } else if(dataset=="real_airquality") {
+    
+    load(paste0(getwd(), "/datasets/air.Rdata"))
+    
+    
+    index<-sample(1:nrow(data$X), size = n,replace = F)
+    
+    ##Need to remove one coumn for Land.use and one for Location.Setting
+    X<-cbind(data$Y[index,],data$X[index, !(colnames(data$X)%in% c("Land.Use_RESIDENTIAL", "Location.Setting_URBAN AND CENTER CITY")  ) ])
+    
+    #X<-cbind(data$Y[index,],data$X[index,])
+    
+    #X<-X[index,]
+    #Y<-Y[index,]
+    
+    return(X)
+    
+  }else if(dataset=="real_spam") {
+    
+    X<-as.matrix(read.csv(paste0(getwd(), "/datasets/spam.csv")))
+    
+    #"C:/Users/Jeff/OneDrive/Today/MAR_project/Code/datasets/spam.csv"
+  
+    #index<-sample(1:nrow(data$X), size = n,replace = F)
+    
+    #X<-as.matrix(spam)
+    #X<-X[index,]
+    #Y<-Y[index,]
+    
+    return(X)
+    
+  }
+  
+  
+  
+  return(X)
+
+}
+
+
