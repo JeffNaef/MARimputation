@@ -99,9 +99,9 @@ for (s in 1:1){
   set.seed(seeds[s])
   
   # independent uniform
-  X<-matrix(runif(n=d*n), nrow=n, ncol=d)
+  #X<-matrix(runif(n=d*n), nrow=n, ncol=d)
   # uniform with Gaussian copula
-  #X <- gaussian_copula_uniform_sim(n = n, d = d)$uniform_data
+  X <- gaussian_copula_uniform_sim(n = n, d = d)$uniform_data
   
   vectors <- matrix(c(
     rep(0, d),

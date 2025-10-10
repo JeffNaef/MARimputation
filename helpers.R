@@ -8,7 +8,7 @@ gaussian_copula_uniform_sim <- function(n, d, correlation = NULL) {
     for (s in 1:d){
       
       
-      C[t,s] <- 0.5^(abs(t-s))
+      C[t,s] <- 0.7^(abs(t-s))
       
     }
     
