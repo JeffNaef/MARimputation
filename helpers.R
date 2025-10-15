@@ -3,6 +3,7 @@
 gaussian_copula_uniform_sim <- function(n, d, correlation = NULL) {
   # If correlation matrix not provided, create random positive definite correlation matrix
   
+  if (is.null(correlation)){
   C<-matrix(0, nrow=d, ncol=d)
   for (t in 1:d){
     for (s in 1:d){
@@ -15,7 +16,7 @@ gaussian_copula_uniform_sim <- function(n, d, correlation = NULL) {
     
   }
   
-  
+  }
   
   # Generate multivariate normal data
   mvn_data <- MASS::mvrnorm(n = n, 
