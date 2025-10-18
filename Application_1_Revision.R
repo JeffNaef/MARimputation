@@ -76,8 +76,8 @@ reticulate::source_python("gain.py") #there will be  warning but don't worry
 reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
 
 ## Add MIWAE here:
-#methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob")#c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "GAIN", "MIWAE")
-methods <- c("DRF", "cart", "missForest")
+methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "GAIN", "MIWAE")
+#methods <- c("DRF", "cart", "missForest")
 nrep.total<-10
 m<-1
 
