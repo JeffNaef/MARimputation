@@ -35,7 +35,79 @@ gaussian_copula_uniform_sim <- function(n, d, correlation = NULL) {
 
 
 
+# Simulate from FGM Copula
+# Method: Sample U1, then sample U2 | U1 from conditional distribution
 
+# Function to sample U2 given U1 using inverse CDF method
+sample_u2_given_u1 <- function(u1, alpha) {
+  # The conditional CDF is: F(u2|u1) = u2 + alpha*(2*u1-1)*(u2^2 - u2)
+  # We need to invert this to sample u2
+  # This is a quadratic equation: alpha*(2*u1-1)*u2^2 + [1 - alpha*(2*u1-1)]*u2 - v = 0
+  # where v ~ Uniform(0,1)
+  
+  v <- runif(1)  # Sample from uniform
+  
+  a <- alpha * (2*u1 - 1)
+  b <- 1 - alpha * (2*u1 - 1)
+  c <- -v
+  
+  # Use quadratic formula: u2 = (-b + sqrt(b^2 - 4ac)) / (2a)
+  # We need the root in [0,1]
+  
+  if (abs(a) < 1e-10) {
+    # Linear case (when u1 ≈ 0.5)
+    u2 <- v / b
+  } else {
+    discriminant <- b^2 - 4*a*c
+    u2 <- (-b + sqrt(discriminant)) / (2*a)
+  }
+  
+  return(u2)
+}
+
+# Simulation function
+simulate_fgm <- function(n, alpha) {
+  # Step 1: Sample U1 from Uniform(0,1)
+  u1 <- runif(n)
+  
+  # Step 2: Sample U2 | U1 for each u1
+  u2 <- sapply(u1, function(x) sample_u2_given_u1(x, alpha))
+  
+  return(data.frame(U1 = u1, U2 = u2))
+}
+
+# # Set parameters
+# set.seed(123)
+# n <- 4000
+# alpha <- 1
+# 
+# # Generate samples
+# samples <- simulate_fgm(n, alpha)
+# 
+# # Calculate sample correlation
+# sample_cor <- cor(samples$U1, samples$U2)
+# theoretical_cor <- alpha / 3
+# 
+# cat("Alpha:", alpha, "\n")
+# cat("Theoretical correlation:", round(theoretical_cor, 4), "\n")
+# cat("Sample correlation:", round(sample_cor, 4), "\n\n")
+# 
+# # Create visualization
+# par(mfrow = c(1, 2))
+# 
+# # Scatter plot
+# plot(samples$U1, samples$U2, 
+#      pch = 16, cex = 0.5, col = rgb(0, 0, 1, 0.3),
+#      xlab = "U1", ylab = "U2",
+#      main = paste0("FGM Copula (alpha = ", alpha, ")"))
+# abline(h = 0.5, v = 0.5, lty = 2, col = "gray")
+# 
+# # Marginal histograms to verify uniformity
+# hist(samples$U1, breaks = 30, main = "Marginal of U1", 
+#      xlab = "U1", col = "lightblue", probability = TRUE)
+# abline(h = 1, col = "red", lwd = 2, lty = 2)
+# 
+# par(mfrow = c(1, 1))
 
 
 

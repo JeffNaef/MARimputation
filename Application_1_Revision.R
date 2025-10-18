@@ -76,7 +76,8 @@ reticulate::source_python("gain.py") #there will be  warning but don't worry
 reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
 
 ## Add MIWAE here:
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob")#c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "GAIN", "MIWAE")
+#methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob")#c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "GAIN", "MIWAE")
+methods <- c("DRF", "cart", "missForest")
 nrep.total<-10
 m<-1
 
@@ -95,14 +96,14 @@ d<-5
 #Results <- lapply(1:10, function(s){
 Results<-list()
 
-for (s in 1:1){
+for (s in 1:nrep.total){
   set.seed(seeds[s])
   
   # independent uniform
   #X<-matrix(runif(n=d*n), nrow=n, ncol=d)
   # uniform with Gaussian copula
-  X <- gaussian_copula_uniform_sim(n = n, d = 2)$uniform_data
-  
+  # X <- gaussian_copula_uniform_sim(n = n, d = 2)$uniform_data
+  X<-simulate_fgm(n=n, alpha=1)
   X<-cbind(X,matrix(runif( (d-2)*n ), nrow=n, ncol=d-2 ))
   
   vectors <- matrix(c(
@@ -136,14 +137,18 @@ for (s in 1:1){
   imputations <-imputations$imputations
   
   
+  imputations[["truth"]][[1]]<-X.NA
+  imputations[["truth"]][[1]][M[,2]==1, 2]<- sapply(imputations[["truth"]][[1]][M[,2]==1, 1], function(u1) sample_u2_given_u1(u1, alpha=1))
+  imputations[["truth"]][[1]][M[,1]==1, 1]<- sapply(imputations[["truth"]][[1]][M[,1]==1, 2], function(u2) sample_u2_given_u1(u2, alpha=1))
+
   
   #Step 2: With access to the full data, check energy score:
   # So far only for m=1!!!
-  escore<-rep(0, length(methods))
-  RMSE<-rep(0, length(methods))
-  names(escore)<-methods
-  names(RMSE)<-methods
-  for (method in methods){
+  escore<-rep(0, length(methods)+1)
+  RMSE<-rep(0, length(methods)+1)
+  names(escore)<-c(methods,"truth")
+  names(RMSE)<-c(methods,"truth")
+  for (method in c(methods,"truth")){
     
     for (j in 1:m){
       
@@ -175,39 +180,6 @@ for (s in 1:1){
   Results[[s]] <- list(energy.score=escore, RMSE=RMSE)
   
   
-  #Plotting:
-  # Open a PNG device for saving the plot
-  png(filename = paste0("Application_2_X1Imputation_", "s=",s, ".png"), 
-      width = 1200,    # Width in pixels
-      height = 400,    # Height in pixels
-      res = 120)       # Resolution in dpi
-  
-  # Set up the plotting layout
-  par(mfrow=c(1,3))
-  
-  # Create the three histograms
-  hist(X[is.na(X.NA[,1]),1], 
-       freq=FALSE, 
-       main="Truth", 
-       xlab="")
-  
-  hist(imputations[["GAIN"]][[1]][is.na(X.NA[,1]),1], 
-       freq=FALSE, 
-       main="GAIN", 
-       xlab="")
-  
-  hist(imputations[["cart"]][[1]][is.na(X.NA[,1]),1], 
-       freq=FALSE, 
-       main="mice-cart", 
-       xlab="")
-  
-  # Close the PNG device
-  dev.off()
-  
-  
-  
-  
-  
   
   #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
   
@@ -233,7 +205,7 @@ scoredata<-scoredata[,!(colnames(scoredata) %in% "sample")]
 scoredata<-(scoredata - max(scoredata))/abs(min(scoredata)- max(scoredata))
 
 
-png(filename = "Application_2_EnergyDistance_RMSE.png", 
+png(filename = "Application_Revision_EnergyDistance_RMSE.png", 
     width = 1700,    # Width in pixels
     height = 800,    # Height in pixels
     res = 120)       # Resolution in dpi
@@ -257,7 +229,7 @@ abline(v=1:(ncol(scoredata)-1)+0.50,lty = 2)
 # Close the PNG device
 dev.off()
 
-filename =paste0("Application_2_", paste0(methods, collapse="_"))
+filename =paste0("Application_Revision_", paste0(methods, collapse="_"))
 
 #filename ="Application_1_withGAINMIWAE"
 
@@ -268,7 +240,48 @@ save(Results, file=paste(filename, ".Rda",sep=""))
 
 
 
+#######
+#For plotting
+#######
 
+d<-2
+n<-20000
+
+#X <- gaussian_copula_uniform_sim(n = n, d = 2)$uniform_data
+X<-simulate_fgm(n=n, alpha=1)
+
+
+X<-cbind(X,matrix(runif( (d-2)*n ), nrow=n, ncol=d-2 ))
+
+vectors <- matrix(c(
+  rep(0, d),
+  0, 1, rep(0,d-2),
+  1, rep(0,d-1)
+), nrow = 3, byrow = TRUE)
+
+
+# Generate random draws
+# sample() will generate indices, which we use to select rows from the matrix
+M <- vectors[apply(X,1, function(x) sample(1:3, size = 1, prob=c((x[1]+x[2])/3, (2-x[1])/3, (1-x[2])/3), replace = TRUE)), ]
+
+## both variables 
+plot(X[,1:2], pch = 16, cex = 0.5, col = rgb(0, 0, 1, 0.3),
+     xlab = "U1", ylab = "U2",
+     #main = paste0("FGM Copula (alpha = ", alpha, ")")
+)
+
+## both variabels in the fully observed pattern:
+#plot(X[M[,1]==0& M[,2]==0,1:2])
+
+plot(X[M[,1]==0& M[,2]==0,1:2], pch = 16, cex = 0.5, col = rgb(0, 0, 1, 0.3),
+           xlab = "U1", ylab = "U2",
+           #main = paste0("FGM Copula (alpha = ", alpha, ")")
+     )
+
+# X_1 is observed
+plot(X[M[,1]==0,1:2])
+# X_2 is observed
+plot(X[M[,2]==0,1:2])
 
 
 
