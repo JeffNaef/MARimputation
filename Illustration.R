@@ -159,6 +159,19 @@ grid.arrange(p1, p2, ncol = 2)
 
 
 
+#Plotting:
+# Open a PNG device for saving the plot
+png(filename = paste0("Overlap_Illustration", ".png"), 
+    width = 1000,    # Width in pixels
+    height = 600,    # Height in pixels
+    res = 120)       # Resolution in dpi
+
+# Combine plots
+grid.arrange(p1, p2, ncol = 2)
+
+# Close the PNG device
+dev.off()
+
 
 
 
