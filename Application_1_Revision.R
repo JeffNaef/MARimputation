@@ -229,12 +229,6 @@ abline(v=1:(ncol(scoredata)-1)+0.50,lty = 2)
 # Close the PNG device
 dev.off()
 
-filename =paste0("Application_Revision_", paste0(methods, collapse="_"))
-
-#filename ="Application_1_withGAINMIWAE"
-
-assign(filename, Results)
-save(Results, file=paste(filename, ".Rda",sep=""))
 
 
 
@@ -283,6 +277,127 @@ plot(X[M[,1]==0,1:2])
 # X_2 is observed
 plot(X[M[,2]==0,1:2])
 
+
+
+### Quantile Estimation
+
+
+methods <- c( "DRF", "cart", "missForest")
+
+set.seed(2) #1
+seeds <- sample(c(0:2000),100,replace = FALSE)
+
+
+n<-5000
+d<-5
+alpha<-0.1
+nrep.total<-20
+
+Resultsquantile<-list()
+
+for (s in 1:nrep.total){
+  set.seed(seeds[s])
+  
+  # independent uniform
+  #X<-matrix(runif(n=d*n), nrow=n, ncol=d)
+  # uniform with Gaussian copula
+  # X <- gaussian_copula_uniform_sim(n = n, d = 2)$uniform_data
+  X<-simulate_fgm(n=n, alpha=1)
+  X<-cbind(X,matrix(runif( (d-2)*n ), nrow=n, ncol=d-2 ))
+  
+  vectors <- matrix(c(
+    rep(0, d),
+    0, 1, rep(0,d-2),
+    1, rep(0,d-1)
+  ), nrow = 3, byrow = TRUE)
+  
+  
+  # Generate random draws
+  # sample() will generate indices, which we use to select rows from the matrix
+  M <- vectors[apply(X,1, function(x) sample(1:3, size = 1, prob=c((x[1]+x[2])/3, (2-x[1])/3, (1-x[2])/3), replace = TRUE)), ]
+  
+  X.NA<-X
+  X.NA[M==1]<-NA
+  
+  
+  colnames(X)<-NULL
+  colnames(X)<-paste0("X",1:d)
+  colnames(X.NA)<-paste0("X",1:d)
+  
+  n<-nrow(X)
+  
+  ################################## imputations #########################################
+  ########################################################################################
+  
+  
+  imputations <- doimputation(X.NA=X.NA, methods=methods, m=m)
+  methods<-imputations$methods
+  
+  imputations <-imputations$imputations
+
+  
+  #Step 2: With access to the full data, check energy score:
+  # So far only for m=1!!!
+  quantile<-rep(0, length(methods)+1)
+  names(quantile)<-c(methods,"observedonly")
+  for (method in c(methods)){
+    
+      
+      Ximp<-imputations[[method]][[1]]
+      
+      colnames(Ximp)<-paste0("X",1:ncol(X))
+      quantile[method]<-quantile(Ximp[,1], probs=alpha)
+    
+  }
+  
+  quantile["observedonly"]<-quantile(X.NA[!is.na(X.NA[,1]),1], probs=alpha)
+  
+  print(paste0("nrep ",s, " out of ", nrep.total ))
+  
+  Resultsquantile[[s]] <- quantile
+  
+  
+  
+  #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
+  
+  
+}
+
+
+##Quantile of X_1 \mid M_1=0
+-7 + sqrt(49+15*alpha)
+
+
+
+
+png(filename = "Application_Revision_quantile.png", 
+    width = 1700,    # Width in pixels
+    height = 800,    # Height in pixels
+    res = 120)       # Resolution in dpi
+
+
+par(mfrow=c(1,1))
+## Setup
+quantiledata<-t(sapply(1:length(Resultsquantile), function(j) Resultsquantile[[j]]))
+quantiledatamtruth<-abs(quantiledata-alpha)
+
+meanvalsquantiles<-colMeans(quantiledatamtruth)
+
+boxplot(quantiledata[,order(meanvalsquantiles, decreasing = T)],,cex.axis=1.5,cex.lab=1.5)
+abline(h=alpha)
+
+# Close the PNG device
+dev.off()
+
+
+
+
+filename =paste0("Application_Revision_", paste0(methods, collapse="_"))
+
+#filename ="Application_1_withGAINMIWAE"
+
+assign(filename, Results)
+save(Results, file=paste(filename, ".Rda",sep=""))
 
 
 
