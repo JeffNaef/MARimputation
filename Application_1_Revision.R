@@ -206,7 +206,7 @@ scoredata<-(scoredata - max(scoredata))/abs(min(scoredata)- max(scoredata))
 
 
 png(filename = "Application_Revision_EnergyDistance_RMSE.png", 
-    width = 1700,    # Width in pixels
+    width = 1800,    # Width in pixels
     height = 800,    # Height in pixels
     res = 120)       # Resolution in dpi
 
