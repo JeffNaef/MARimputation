@@ -80,7 +80,7 @@ reticulate::source_python("gain.py") #there will be  warning but don't worry
 reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
 
 
-methods <- c("rf", "cart", "missForest") #, "GAIN", "MIWAE"
+methods <- c("GAIN", "MIWAE") #, "GAIN", "MIWAE"
 
 
 py_config()
@@ -105,7 +105,7 @@ reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't 
 
 
 nrep.total<-10
-
+m<-1
 
 
 set.seed(2) #1
@@ -131,7 +131,7 @@ for (s in 1:10){
   #  length(unique(x))) / N > 0.1 , drop = F]
   
   #if (ncol(X0) <= 5) {
-   # next
+  # next
   #}
   
   n <- round(N / 2) - 1
@@ -187,9 +187,9 @@ for (s in 1:10){
   X.NA <- X.NA[order(c(complete_idx, seq_len(nrow(Xtrain))[-complete_idx])), , drop = FALSE]
   
   M <- is.na(X.NA) * 1
-  colnames(X.NA) <- paste0("X", 1:ncol(X0))
+  colnames(X.NA) <- paste0("X", 1:ncol(Xtrain))
   
-
+  
   
   ################################## imputations #########################################
   ########################################################################################
@@ -205,20 +205,23 @@ for (s in 1:10){
   RMSE<-rep(0, length(methods))
   names(escore)<-methods
   names(RMSE)<-methods
+  
+  Results<-list()
+  
   for (method in methods){
     
     for (j in 1:m){
       
       Ximp<-imputations[[method]][[j]]
       
-      colnames(Ximp)<-paste0("X",1:ncol(X))
-      escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )*(2*n)/(n^2)
+      colnames(Ximp)<-paste0("X",1:ncol(Xtrain))
+      escore[method]<-escore[method]+eqdist.e( rbind(Xtrain,Ximp), c(nrow(Xtrain), nrow(Ximp))  )*(2*n)/(n^2)
       #escore[method]<-
       #  escore[method]+ 0.5*scoringRules:::esC_xx(t(Ximp), w=rep(1/nrow(Ximp),nrow(Ximp)))- owndistance(X,Ximp)
       
       
       RMSE[method] <-
-        RMSE[method] -  round(mean(apply(X - Ximp,1,function(x) norm(as.matrix(x), type="F"  ) )),2)
+        RMSE[method] -  round(mean(apply(Xtrain - Ximp,1,function(x) norm(as.matrix(x), type="F"  ) )),2)
       
     }
     escore[method] <- -1/m*escore[method]
@@ -232,7 +235,7 @@ for (s in 1:10){
   
   Results[[s]] <- list(energy.score=escore, RMSE=RMSE)
   
-  saveRDS(Results, file = paste("results_", methods, ".rds"))
+  saveRDS(Results, file = paste0("results_", methods, ".rds"))
   
   
   #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
@@ -260,7 +263,7 @@ scoredata<-scoredata[,!(colnames(scoredata) %in% "sample")]
 scoredata<-(scoredata - max(scoredata))/abs(min(scoredata)- max(scoredata))
 
 
-png(filename = "Application_4_EnergyDistance_RMSE.png", 
+png(filename = "Application_5_EnergyDistance_RMSE.png", 
     width = 1700,    # Width in pixels
     height = 800,    # Height in pixels
     res = 120)       # Resolution in dpi
