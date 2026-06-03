@@ -44,10 +44,10 @@ source("helpers.R")
 
 
 
-methods <- c("GAIN", "MIWAE") #, "GAIN", "MIWAE"
+methods <- c("rf", "cart") #, "GAIN", "MIWAE"
 
 
-if (c("GAIN", "MIWAE") %in% methods){
+if (any(c("GAIN", "MIWAE") %in% methods)){
   
   #install.packages("reticulate")
   library(reticulate)
@@ -120,7 +120,7 @@ seeds <- sample(c(0:2000),100,replace = FALSE)
 
 
 
-
+Results<-list()
 
 
 for (s in 1:10){
@@ -212,7 +212,7 @@ for (s in 1:10){
   names(escore)<-methods
   names(RMSE)<-methods
   
-  Results<-list()
+
   
   for (method in methods){
     
