@@ -80,7 +80,7 @@ reticulate::source_python("gain.py") #there will be  warning but don't worry
 reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
 
 
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob") #, "GAIN", "MIWAE"
+methods <- c("rf", "cart", "missForest") #, "GAIN", "MIWAE"
 
 
 py_config()
@@ -108,18 +108,10 @@ nrep.total<-10
 
 
 
-dataset <- "scm1d"
-
-m <- 1
-
-
 set.seed(2) #1
 seeds <- sample(c(0:2000),100,replace = FALSE)
 
 
-
-d<-3
-Beta<-diag(d)#matrix(1, nrow=d,ncol=d)
 
 
 
@@ -142,8 +134,6 @@ for (s in 1:10){
    # next
   #}
   
-  
-  set.seed(1)
   n <- round(N / 2) - 1
   indextrain <- sample(1:N, size = n , replace = F)
   
@@ -206,7 +196,7 @@ for (s in 1:10){
   
   ## Add drf
   ## Deactivate standardization for MIWAE here!!!!
-  imputations <- doimputation(X.NA=X.NA, methods=methods, m=m)
+  imputations <- doimputation(X.NA=X.NA, methods=methods, m=1)
   methods<-imputations$methods
   
   imputations <-imputations$imputations
@@ -241,6 +231,8 @@ for (s in 1:10){
   print(paste0("nrep ",s, " out of ", nrep.total ))
   
   Results[[s]] <- list(energy.score=escore, RMSE=RMSE)
+  
+  saveRDS(Results, file = paste("results_", methods, ".rds"))
   
   
   #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
