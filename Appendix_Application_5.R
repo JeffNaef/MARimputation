@@ -43,8 +43,15 @@ source("helpers.R")
 #source("Iscores_new.R")
 
 
-#install.packages("reticulate")
-library(reticulate)
+
+methods <- c("GAIN", "MIWAE") #, "GAIN", "MIWAE"
+
+
+if (c("GAIN", "MIWAE") %in% methods){
+  
+  #install.packages("reticulate")
+  library(reticulate)
+  
 
 ##Laptop
 Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
@@ -80,7 +87,6 @@ reticulate::source_python("gain.py") #there will be  warning but don't worry
 reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
 
 
-methods <- c("GAIN", "MIWAE") #, "GAIN", "MIWAE"
 
 
 py_config()
@@ -101,7 +107,7 @@ torchvision <- import("torchvision")
 
 reticulate::source_python("gain.py") #there will be  warning but don't worry 
 reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
-
+}
 
 
 nrep.total<-10
@@ -197,7 +203,7 @@ for (s in 1:10){
   ## Add drf
   ## Deactivate standardization for MIWAE here!!!!
   imputations <- doimputation(X.NA=X.NA, methods=methods, m=1)
-  methods<-imputations$methods
+  #methods<-imputations$methods
   
   imputations <-imputations$imputations
   
@@ -229,13 +235,14 @@ for (s in 1:10){
   }
   
   print("e-score")
-  print( sort( round(escore/sum(escore),3) , decreasing=T)   )
+  sort( round(escore,3) , decreasing=T)
+  #print( sort( round(escore/sum(escore),3) , decreasing=T)   )
   
   print(paste0("nrep ",s, " out of ", nrep.total ))
   
   Results[[s]] <- list(energy.score=escore, RMSE=RMSE)
   
-  saveRDS(Results, file = paste0("results_", methods, ".rds"))
+  saveRDS(Results, file = paste0("results_", paste0(methods, collapse="_"), ".rds"))
   
   
   #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
