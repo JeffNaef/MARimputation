@@ -44,7 +44,7 @@ source("helpers.R")
 
 
 
-methods <- c("rf") # "cart", "GAIN", "MIWAE"
+methods <- c("cart") # "rf" "cart", "GAIN", "MIWAE"
 
 
 if (any(c("GAIN", "MIWAE") %in% methods)){
@@ -123,7 +123,7 @@ seeds <- sample(c(0:2000),100,replace = FALSE)
 Results<-list()
 
 
-for (s in 2:10){
+for (s in 1:10){
   set.seed(seeds[s])
   
   
