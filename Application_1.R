@@ -37,43 +37,72 @@ source("helpers.R")
 
 
 
-#install.packages("reticulate")
-library(reticulate)
+
+methods <- c("rf") # "cart", "GAIN", "MIWAE"
 
 
+if (any(c("GAIN", "MIWAE") %in% methods)){
+  
+  #install.packages("reticulate")
+  library(reticulate)
+  
+  
+  ##Laptop
+  Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
+  #use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
+  use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
+  
+  ## Write 
+  # conda activate gain_env
+  ## in the terminal!
+  
+  py_config()
+  
+  ###MIWAE method
+  torch <- import("torch") 
+  torchvision <- import("torchvision")
+  numpy <- import("numpy")
+  scipy <- import("scipy")
+  pandas <- import("pandas")
+  sklearn<- import("sklearn")
+  
+  ###GAIN method
+  #Required Python Packages
+  tensorflow <- import("tensorflow")
+  numpy <- import("numpy")
+  tqdm <- import("tqdm")
+  keras <- import("keras")
+  argparse <- import("argparse")  #pip install argparse
+  sys<- import("sys")
+  
+  
+  
+  reticulate::source_python("gain.py") #there will be  warning but don't worry 
+  reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
+  
+  
+  
+  
+  py_config()
+  
+  #Required Python Packages
+  tensorflow <- import("tensorflow")
+  numpy <- import("numpy")
+  tqdm <- import("tqdm")
+  keras <- import("keras")
+  argparse <- import("argparse")  #pip install argparse
+  sys<- import("sys")
+  torch <- import("torch") 
+  numpy <- import("numpy")
+  scipy <- import("scipy")
+  pandas <- import("pandas")
+  sklearn<- import("sklearn")
+  torchvision <- import("torchvision")
+  
+  reticulate::source_python("gain.py") #there will be  warning but don't worry 
+  reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
+}
 
-##Laptop
-Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
-#use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
-use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
-
-## Write 
-# conda activate gain_env
-## in the terminal!
-
-py_config()
-
-###MIWAE method
-torch <- import("torch") 
-torchvision <- import("torchvision")
-numpy <- import("numpy")
-scipy <- import("scipy")
-pandas <- import("pandas")
-sklearn<- import("sklearn")
-
-###GAIN method
-#Required Python Packages
-tensorflow <- import("tensorflow")
-numpy <- import("numpy")
-tqdm <- import("tqdm")
-keras <- import("keras")
-argparse <- import("argparse")  #pip install argparse
-sys<- import("sys")
-
-
-
-reticulate::source_python("gain.py") #there will be  warning but don't worry 
-reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
 
 ## Add MIWAE here:
 methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "GAIN", "MIWAE")
