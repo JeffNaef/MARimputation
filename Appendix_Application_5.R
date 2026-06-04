@@ -44,7 +44,7 @@ source("helpers.R")
 
 
 
-methods <- c("cart") # "rf" "cart", "GAIN", "MIWAE"
+methods <- c("cart", "DRF", "cart", "GAIN", "MIWAE") # 
 
 
 if (any(c("GAIN", "MIWAE") %in% methods)){
@@ -242,7 +242,7 @@ for (s in 1:10){
   
   Results[[s]] <- list(energy.score=escore, RMSE=RMSE)
   
-  saveRDS(Results, file = paste0("results_", paste0(methods, collapse="_"), ".rds"))
+  saveRDS(Results, file = paste0("results_", "Application_5", paste0(methods, collapse="_"), ".rds"))
   
   
   #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
@@ -251,22 +251,22 @@ for (s in 1:10){
 }
 
 
-## Analysis
+
 
 
 
 energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$energy.score))
-energydata<-energydata[,!(colnames(energydata) %in% "sample")]
+energydata<-energydata[,!(colnames(energydata) %in% "rf")]
 
 
 ## Standardize
 ## Analysis
-energydata<-energydata[,!(colnames(energydata) %in% "sample")]
+energydata<-energydata[,!(colnames(energydata) %in% "rf")]
 energydata<-(energydata - max(energydata))/abs(min(energydata)- max(energydata))
 meanvalsenergy<- colMeans(energydata)
 
 scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$RMSE)))
-scoredata<-scoredata[,!(colnames(scoredata) %in% "sample")]
+scoredata<-scoredata[,!(colnames(scoredata) %in% "rf")]
 scoredata<-(scoredata - max(scoredata))/abs(min(scoredata)- max(scoredata))
 
 
@@ -278,7 +278,7 @@ png(filename = "Application_5_EnergyDistance_RMSE.png",
 
 par(mfrow=c(1,1))
 ## Setup
-boxplot(energydata[,order(meanvalsenergy)], boxfill = NA, border = NA, ylim=c(-1,0),cex.axis=1.5,cex.lab=1.5) #invisible boxes - only axes and plot area
+boxplot(energydata[,order(meanvalsenergy)], boxfill = NA, ylim=c(-0.2,0), border = NA,cex.axis=1.5,cex.lab=1.5) #invisible boxes - only axes and plot area
 ##
 
 boxplot(energydata[,order(meanvalsenergy)],ylab="",yaxt="n", xaxt = "n", add = TRUE, boxfill="white",
@@ -297,11 +297,6 @@ dev.off()
 
 
 
-
-filename =paste0("Application_3_", paste0(methods, collapse="_"))
-
-assign(filename, Results)
-save(Results, file=paste(filename, ".Rda",sep=""))
 
 
 
