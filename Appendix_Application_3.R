@@ -1,5 +1,6 @@
 
-### This is the Gaussian Shift Example #####
+
+#### Application of Section A.3. Nonlinear Shift Example ##
 
 
 require(energy)
@@ -40,11 +41,12 @@ print("IScores loaded")
 library(scoringRules)
 library(miceDRF)
 
+
 source("helpers.R")
 #source("Iscores_new.R")
 
-
 methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "GAIN", "MIWAE")
+
 
 
 if (any(c("GAIN", "MIWAE") %in% methods)){
@@ -111,19 +113,14 @@ if (any(c("GAIN", "MIWAE") %in% methods)){
 
 
 
+
+
 nrep.total<-10
 
 
 
 dataset <- "multivariateGaussian"
 
-## TO DO
-## 1.Create Nice multivariate Gaussian dataset with 3-4 patterns with changing distribution!! (say 5 fully observed values and
-## that change their distribution in each pattern + always the same conditional distribution)
-## => Show how hard imputation can be + score proper + energy distance useful
-## 2. Use real dataset with ampute MAR
-## => Show score proper + energy distance useful
-## 3. Use spam dataset and impute with DRF block + GAIN
 m <- 1
 
 
@@ -155,10 +152,17 @@ Xobs1<- MASS::mvrnorm(n = 10*N, mu = rep(5, d), Sigma = C) #genDataNoNA_syntheti
 Xobs2<- MASS::mvrnorm(n = 10*N, mu = rep(-5, d), Sigma = C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
 Xobs3<- MASS::mvrnorm(n = 10*N, mu = rep(0, d), Sigma = C)#genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
 
+Xobs1tranformed<-t(apply(Xobs1,1,function(x){ 
+  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
+Xobs2tranformed<-t(apply(Xobs2,1,function(x){ 
+  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
+Xobs3tranformed<-t(apply(Xobs3,1,function(x){ 
+  c(x[3]*sin(x[1]*x[2]),x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
+
 # matrix(Xobs1, nrow=nrow(Xobs1), )
-X.NA1 <- Xobs1%*%Beta+ matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
-X.NA2 <- Xobs2%*%Beta+ matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
-X.NA3 <- Xobs3%*%Beta + matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
+X.NA1 <- Xobs1tranformed%*%Beta+ matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
+X.NA2 <- Xobs2tranformed%*%Beta+ matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
+X.NA3 <- Xobs3tranformed%*%Beta + matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
 
 #Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
 
@@ -257,7 +261,7 @@ scoredata<-scoredata[,!(colnames(scoredata) %in% "sample")]
 scoredata<-(scoredata - max(scoredata))/abs(min(scoredata)- max(scoredata))
 
 
-png(filename = "Application_3_EnergyDistance_RMSE.png", 
+png(filename = "Application_4_EnergyDistance_RMSE.png", 
     width = 1700,    # Width in pixels
     height = 800,    # Height in pixels
     res = 120)       # Resolution in dpi

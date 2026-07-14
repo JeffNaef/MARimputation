@@ -1,7 +1,6 @@
-### Application Ready to Run #####
 
 
-#### Application of Section 4.2. Air Quality Data ##
+#### Application of Section 5.2. Air Quality Data ##
 
 require(energy)
 require(mice)

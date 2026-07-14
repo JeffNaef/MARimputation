@@ -1,5 +1,5 @@
 
-### This is the Nonlinear Shift Example #####
+#### Application of Section A.4. scmd1 ##
 
 
 require(energy)
@@ -35,8 +35,6 @@ library(AER)
 print("AER loaded")
 library(missForest)
 print("missForest loaded")
-library(Iscores)
-print("IScores loaded")
 library(scoringRules)
 library(miceDRF)
 
@@ -44,8 +42,9 @@ library(miceDRF)
 source("helpers.R")
 #source("Iscores_new.R")
 
-methods <- c( "DRF", "cart","norm.predict", "missForest", "norm.nob", "GAIN", "MIWAE")
 
+
+methods <- c("cart", "DRF", "cart", "GAIN", "MIWAE") # 
 
 
 if (any(c("GAIN", "MIWAE") %in% methods)){
@@ -53,74 +52,66 @@ if (any(c("GAIN", "MIWAE") %in% methods)){
   #install.packages("reticulate")
   library(reticulate)
   
-  
-  ##Laptop
-  Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
-  #use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
-  use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
-  
-  ## Write 
-  # conda activate gain_env
-  ## in the terminal!
-  
-  py_config()
-  
-  ###MIWAE method
-  torch <- import("torch") 
-  torchvision <- import("torchvision")
-  numpy <- import("numpy")
-  scipy <- import("scipy")
-  pandas <- import("pandas")
-  sklearn<- import("sklearn")
-  
-  ###GAIN method
-  #Required Python Packages
-  tensorflow <- import("tensorflow")
-  numpy <- import("numpy")
-  tqdm <- import("tqdm")
-  keras <- import("keras")
-  argparse <- import("argparse")  #pip install argparse
-  sys<- import("sys")
-  
-  
-  
-  reticulate::source_python("gain.py") #there will be  warning but don't worry 
-  reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
-  
-  
-  
-  
-  py_config()
-  
-  #Required Python Packages
-  tensorflow <- import("tensorflow")
-  numpy <- import("numpy")
-  tqdm <- import("tqdm")
-  keras <- import("keras")
-  argparse <- import("argparse")  #pip install argparse
-  sys<- import("sys")
-  torch <- import("torch") 
-  numpy <- import("numpy")
-  scipy <- import("scipy")
-  pandas <- import("pandas")
-  sklearn<- import("sklearn")
-  torchvision <- import("torchvision")
-  
-  reticulate::source_python("gain.py") #there will be  warning but don't worry 
-  reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
+
+##Laptop
+Sys.setenv("gain_env" =  "C:/Users/jeffr/anaconda3/envs/gain_env")
+#use_python("C:/Users/jeffr/anaconda3/envs/gain_env/bin/python")
+use_condaenv("C:/Users/jeffr/anaconda3/envs/gain_env")
+
+## Write 
+# conda activate gain_env
+## in the terminal!
+
+py_config()
+
+###MIWAE method
+torch <- import("torch") 
+torchvision <- import("torchvision")
+numpy <- import("numpy")
+scipy <- import("scipy")
+pandas <- import("pandas")
+sklearn<- import("sklearn")
+
+###GAIN method
+#Required Python Packages
+tensorflow <- import("tensorflow")
+numpy <- import("numpy")
+tqdm <- import("tqdm")
+keras <- import("keras")
+argparse <- import("argparse")  #pip install argparse
+sys<- import("sys")
+
+
+
+reticulate::source_python("gain.py") #there will be  warning but don't worry 
+reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
+
+
+
+
+py_config()
+
+#Required Python Packages
+tensorflow <- import("tensorflow")
+numpy <- import("numpy")
+tqdm <- import("tqdm")
+keras <- import("keras")
+argparse <- import("argparse")  #pip install argparse
+sys<- import("sys")
+torch <- import("torch") 
+numpy <- import("numpy")
+scipy <- import("scipy")
+pandas <- import("pandas")
+sklearn<- import("sklearn")
+torchvision <- import("torchvision")
+
+reticulate::source_python("gain.py") #there will be  warning but don't worry 
+reticulate::source_python("MIWAE_Pytorch.py") #there will be  warning but don't worry
 }
 
 
-
-
-
 nrep.total<-10
-
-
-
-dataset <- "multivariateGaussian"
-
-m <- 1
+m<-1
 
 
 set.seed(2) #1
@@ -128,78 +119,91 @@ seeds <- sample(c(0:2000),100,replace = FALSE)
 
 
 
-d<-3
-Beta<-diag(d)#matrix(1, nrow=d,ncol=d)
 
-
-N<-500
-
-C<-matrix(0, nrow=d, ncol=d)
-for (i in 1:3){
-  for (j in 1:3){
-    
-    
-    C[i,j] <- 0.5^(abs(i-j))
-    
-  }
-  
-  
-}
-
-## Build the observed data
-Xobs1<- MASS::mvrnorm(n = 10*N, mu = rep(5, d), Sigma = C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs2<- MASS::mvrnorm(n = 10*N, mu = rep(-5, d), Sigma = C) #genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-Xobs3<- MASS::mvrnorm(n = 10*N, mu = rep(0, d), Sigma = C)#genDataNoNA_synthetic(dataset = dataset, n.train = 10*N, d=3)$train
-
-Xobs1tranformed<-t(apply(Xobs1,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
-Xobs2tranformed<-t(apply(Xobs2,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]), x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
-Xobs3tranformed<-t(apply(Xobs3,1,function(x){ 
-  c(x[3]*sin(x[1]*x[2]),x[2]*(x[2] > 0), atan(x[1])*atan(x[2]) ) }  ))
-
-# matrix(Xobs1, nrow=nrow(Xobs1), )
-X.NA1 <- Xobs1tranformed%*%Beta+ matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
-X.NA2 <- Xobs2tranformed%*%Beta+ matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
-X.NA3 <- Xobs3tranformed%*%Beta + matrix( rnorm(n=3*10*N,sd=2), nrow=10*N, ncol= 3   )
-
-#Fulldata<-cbind( rbind( X.NA1, X.NA2, X.NA3 ), rbind(Xobs1, Xobs2, Xobs3)    )
-
-M1<-matrix(c(1,0,0), nrow=10*N, ncol=3, byrow=T)
-M2<-matrix(c(0,1,0), nrow=10*N, ncol=3, byrow=T)
-M3<-matrix(c(0,0,1), nrow=10*N, ncol=3, byrow=T)
-
-#FullM<-cbind( rbind( M1, M2, M3 ), matrix(0, nrow=3*10000, ncol=3)    )
-
-#length(ids.jack)
-#Results <- lapply(1:10, function(s){
 Results<-list()
+
 
 for (s in 1:10){
   set.seed(seeds[s])
   
   
   
+  X0 <- readRDS(paste0("datasets/", "scm1d", ".RDS"))
+  N <- nrow(X0)
   
-  X<-cbind( rbind( X.NA1[ (N*(s-1)+1):(N*s),], 
-                   X.NA2[ (N*(s-1)+1):(N*s),], X.NA3[ (N*(s-1)+1):(N*s),]), 
-            rbind(Xobs1[ (N*(s-1)+1):(N*s),], Xobs2[ (N*(s-1)+1):(N*s),], Xobs3[ (N*(s-1)+1):(N*s),])    )
-  M<-cbind( rbind( M1[ (N*(s-1)+1):(N*s),], M2[ (N*(s-1)+1):(N*s),], M3[ (N*(s-1)+1):(N*s),] ), 
-            matrix(0, nrow=3*N, ncol=3)    )
-  X.NA<-X
-  X.NA[M==1] <- NA
   
-  colnames(X)<-NULL
-  colnames(X)<-paste0("X",1:6)
-  n<-nrow(X)
+  ###Only choose numerical variables ####
+  #X0 <- X0[, apply(X0, 2, function(x)
+  #  length(unique(x))) / N > 0.1 , drop = F]
+  
+  #if (ncol(X0) <= 5) {
+  # next
+  #}
+  
+  n <- round(N / 2) - 1
+  indextrain <- sample(1:N, size = n , replace = F)
+  
+  Xtrain <- X0[indextrain, ]
+  
+  
+  d <- ncol(X0)
+  npattern <- sample(3:max(round(n / 100), 3), size = 1)
+  
+  patterns <- matrix(
+    sample(c(0, 1), size = npattern * (d - 1), replace = T),
+    nrow = npattern,
+    ncol = d - 1,
+    byrow = T
+  )
+  patterns <- cbind(patterns, rep(1, nrow(patterns)))
+  
+  ##add fully observed pattern
+  if (all(rowSums(patterns) < d)) {
+    patterns <- rbind(patterns, rep(1, d))
+    
+  }
+  
+  
+  # Separate the all-ones (complete) pattern
+  all_ones <- apply(patterns, 1, function(r)
+    all(r == 1))
+  incomplete_patterns <- patterns[!all_ones, , drop = FALSE]
+  n_pats <- nrow(incomplete_patterns)
+  
+  n_total <- nrow(Xtrain)
+  n_complete <- round(n_total / (n_pats + 1))  # ~1/21 of rows stay complete
+  
+  # Randomly assign rows to the "complete" pattern
+  complete_idx <- sample(n_total, n_complete)
+  Xtrain_to_ampute <- Xtrain[-complete_idx, , drop = FALSE]
+  
+  # Ampute the remaining rows with equal frequency across incomplete patterns
+  tmp <- ampute(
+    Xtrain_to_ampute,
+    patterns  = incomplete_patterns,
+    freq      = rep(1 / n_pats, n_pats),
+    prop      = 0.99,
+    # ampute all but 1/(n_pats+1) fraction
+    mech      = "MAR",
+    bycases   = TRUE
+  )
+  
+  # Reassemble, preserving original row order
+  X.NA <- rbind(Xtrain[complete_idx, , drop = FALSE], tmp$amp)
+  X.NA <- X.NA[order(c(complete_idx, seq_len(nrow(Xtrain))[-complete_idx])), , drop = FALSE]
+  
+  M <- is.na(X.NA) * 1
+  colnames(X.NA) <- paste0("X", 1:ncol(Xtrain))
+  
+  
   
   ################################## imputations #########################################
   ########################################################################################
   
   ## Add drf
   ## Deactivate standardization for MIWAE here!!!!
-  imputations <- doimputation(X.NA=X.NA, methods=methods, m=m)
-  methods<-imputations$methods
+  imputations <- doimputation(X.NA=X.NA, methods=methods, m=1)
+  #methods<-imputations$methods
   
   imputations <-imputations$imputations
   
@@ -207,20 +211,23 @@ for (s in 1:10){
   RMSE<-rep(0, length(methods))
   names(escore)<-methods
   names(RMSE)<-methods
+  
+
+  
   for (method in methods){
     
     for (j in 1:m){
       
       Ximp<-imputations[[method]][[j]]
       
-      colnames(Ximp)<-paste0("X",1:ncol(X))
-      escore[method]<-escore[method]+eqdist.e( rbind(X,Ximp), c(nrow(X), nrow(Ximp))  )*(2*n)/(n^2)
+      colnames(Ximp)<-paste0("X",1:ncol(Xtrain))
+      escore[method]<-escore[method]+eqdist.e( rbind(Xtrain,Ximp), c(nrow(Xtrain), nrow(Ximp))  )*(2*n)/(n^2)
       #escore[method]<-
       #  escore[method]+ 0.5*scoringRules:::esC_xx(t(Ximp), w=rep(1/nrow(Ximp),nrow(Ximp)))- owndistance(X,Ximp)
       
       
       RMSE[method] <-
-        RMSE[method] -  round(mean(apply(X - Ximp,1,function(x) norm(as.matrix(x), type="F"  ) )),2)
+        RMSE[method] -  round(mean(apply(Xtrain - Ximp,1,function(x) norm(as.matrix(x), type="F"  ) )),2)
       
     }
     escore[method] <- -1/m*escore[method]
@@ -228,11 +235,14 @@ for (s in 1:10){
   }
   
   print("e-score")
-  print( sort( round(escore/sum(escore),3) , decreasing=T)   )
+  print(sort( round(escore,3) , decreasing=T))
+  #print( sort( round(escore/sum(escore),3) , decreasing=T)   )
   
   print(paste0("nrep ",s, " out of ", nrep.total ))
   
   Results[[s]] <- list(energy.score=escore, RMSE=RMSE)
+  
+  saveRDS(Results, file = paste0("results_", "Application_5", paste0(methods, collapse="_"), ".rds"))
   
   
   #return(list(new.score.imp = new.score.imp,new.score.drf=new.score.drf , energy.score=escore))
@@ -241,26 +251,26 @@ for (s in 1:10){
 }
 
 
-## Analysis
+
 
 
 
 energydata<-t(sapply(1:length(Results), function(j) Results[[j]]$energy.score))
-energydata<-energydata[,!(colnames(energydata) %in% "sample")]
+energydata<-energydata[,!(colnames(energydata) %in% "rf")]
 
 
 ## Standardize
 ## Analysis
-energydata<-energydata[,!(colnames(energydata) %in% "sample")]
+energydata<-energydata[,!(colnames(energydata) %in% "rf")]
 energydata<-(energydata - max(energydata))/abs(min(energydata)- max(energydata))
 meanvalsenergy<- colMeans(energydata)
 
 scoredata<-t(sapply(1:length(Results), function(j)  unlist(Results[[j]]$RMSE)))
-scoredata<-scoredata[,!(colnames(scoredata) %in% "sample")]
+scoredata<-scoredata[,!(colnames(scoredata) %in% "rf")]
 scoredata<-(scoredata - max(scoredata))/abs(min(scoredata)- max(scoredata))
 
 
-png(filename = "Application_4_EnergyDistance_RMSE.png", 
+png(filename = "Application_5_EnergyDistance_RMSE.png", 
     width = 1700,    # Width in pixels
     height = 800,    # Height in pixels
     res = 120)       # Resolution in dpi
@@ -268,7 +278,7 @@ png(filename = "Application_4_EnergyDistance_RMSE.png",
 
 par(mfrow=c(1,1))
 ## Setup
-boxplot(energydata[,order(meanvalsenergy)], boxfill = NA, border = NA, ylim=c(-1,0),cex.axis=1.5,cex.lab=1.5) #invisible boxes - only axes and plot area
+boxplot(energydata[,order(meanvalsenergy)], boxfill = NA, ylim=c(-0.2,0), border = NA,cex.axis=1.5,cex.lab=1.5) #invisible boxes - only axes and plot area
 ##
 
 boxplot(energydata[,order(meanvalsenergy)],ylab="",yaxt="n", xaxt = "n", add = TRUE, boxfill="white",
@@ -287,11 +297,6 @@ dev.off()
 
 
 
-
-filename =paste0("Application_3_", paste0(methods, collapse="_"))
-
-assign(filename, Results)
-save(Results, file=paste(filename, ".Rda",sep=""))
 
 
 
